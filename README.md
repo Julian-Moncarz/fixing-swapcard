@@ -16,16 +16,20 @@ Why: see [PAIN-POINTS.md](PAIN-POINTS.md) for the specific, step-by-step frustra
 | **Cruft** | Hides the "Online now" carousel, the "Need to meet? / +N requests sent" promo, and the lead-qualification box. |
 | **Feedback** | "Give feedback on this UI" button (bottom left): comment plus an optional screenshot you can mark up (box, draw, blur). |
 
-## Install (for now: developer mode)
+## Install in 1 minute (Chrome)
 
-1. Download this repo (or `git clone`).
-2. Open `chrome://extensions`, turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick this folder.
-4. Open any Swapcard event at `app.swapcard.com`.
+1. **[Download calmercard.zip](https://github.com/Julian-Moncarz/fixing-swapcard/releases/latest/download/calmercard.zip)** and double-click it to unzip. You get a `calmercard` folder.
+2. In Chrome, go to `chrome://extensions` (type it in the address bar) and turn on **Developer mode** (top right).
+3. Click **Load unpacked** and choose the `calmercard` folder.
+4. Open your event on [app.swapcard.com](https://app.swapcard.com). You'll see **Schedule** and **Inbox** in the top bar.
 
-To update: pull the repo, then click the reload icon on the extension card.
+**To update:** download the zip again, unzip it over the old folder, and click the ↻ reload icon on the Calmer Card card in `chrome://extensions`.
 
-The plan is to publish it unlisted on the Chrome Web Store after EA Global NYC 2026, so installing becomes one click with automatic updates.
+**To turn it off:** flip its switch in `chrome://extensions`; Swapcard goes back to normal.
+
+Keep the `calmercard` folder somewhere permanent (not Downloads you clean out): Chrome loads the extension from it. A one-click Chrome Web Store version is in review.
+
+Works in Chrome, Edge, Brave and Arc (any Chromium browser, version 111+). Not on phones: mobile browsers don't run extensions.
 
 ## How it works
 
