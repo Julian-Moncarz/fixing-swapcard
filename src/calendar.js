@@ -467,18 +467,31 @@
       fams.length > 0 && h('div', { class: 'cc-hidden-fams' }, h('span', { class: 'cc-small cc-muted' }, 'Hidden groups: '), fams));
   };
 
-  // "Show all sessions" switch in Swapcard's own left sidebar, under Appearance.
+  // A small "View" button in the calendar's top-left corner holds the view options (the old
+  // Appearance sidebar is hidden so the calendar gets the full width).
   const injectToggle = () => {
-    if (document.querySelector('.cc-allsessions-toggle')) return;
-    const appearance = CC.$$('h1,h2,h3,h4,span,div').find((e) => e.children.length === 0 && e.textContent.trim() === 'Appearance');
-    const host = appearance && appearance.parentElement;
-    if (!host) return;
+    const row = document.querySelector(sc('desktop-date-header__HeaderRow'));
+    if (!row || row.querySelector(':scope > .cc-view')) return;
     const input = h('input', { type: 'checkbox' });
     input.checked = pref();
     input.addEventListener('change', () => { setPref(input.checked); render(true); });
-    host.append(
+    // Swapcard's own "Time zone and format" opener lives in the hidden sidebar; we click it for you.
+    const tz = h('button', { type: 'button', class: 'cc-view-link' }, 'Time zone and format…');
+    tz.addEventListener('click', () => {
+      pop.hidden = true;
+      const theirs = CC.$$('button, a, div').find((e) => e.textContent.trim() === 'Time zone and format' && e.closest(sc('aside__Aside')));
+      (theirs && (theirs.closest('button, a, [role="button"]') || theirs)).click();
+    });
+    const pop = h('div', { class: 'cc-view-pop', hidden: true, role: 'dialog', 'aria-label': 'View options' },
       h('label', { class: 'cc-allsessions-toggle' }, input, ' Show sessions I’m not attending'),
-      h('div', { class: 'cc-cal-controls' }));
+      h('div', { class: 'cc-cal-controls' }),
+      tz);
+    const btn = h('button', { type: 'button', class: 'cc-view-btn', 'aria-haspopup': 'dialog', title: 'View options' }, 'View ▾');
+    btn.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; });
+    pop.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => { pop.hidden = true; });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pop.hidden = true; });
+    row.append(h('div', { class: 'cc-view' }, btn, pop));
   };
 
   // The schedule is always the calendar: switch to it if needed, and hide the List/Calendar switch.
