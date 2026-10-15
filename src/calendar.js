@@ -428,7 +428,7 @@
               type: 'button', class: 'cc-ghost-chip',
               'aria-label': `${cl.items.length} sessions you're not attending. Click for day view`,
               style: { top: yOf(cl.start) + 'px' },
-            }, `${cl.items.length} sessions`);
+            }, `${cl.items.length} other sessions`);
             ui.hoverCard(chip, () => clusterCard(cl, col, hid));
             chip.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
             area.append(chip);
