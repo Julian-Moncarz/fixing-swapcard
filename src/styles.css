@@ -320,34 +320,52 @@ html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-
 .cc-side-profile { overflow: visible; padding-bottom: 20px; }
 .cc-side-profile > * { margin-left: 16px; margin-right: 16px; }
 .cc-side-profile > .cc-drawer-request { margin: 0; }
-.cc-requests { font-family: var(--cc-font); margin-bottom: 8px; }
-.cc-section-head {
-  display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px;
-  font: 600 13px var(--cc-font); text-transform: uppercase; letter-spacing: .04em; color: var(--cc-text-muted);
+/* Left column: our list replaces Swapcard's chat list and account switcher. */
+.cc-ib-owned > :not(.cc-ib) { display: none !important; }
+.cc-ib { font-family: var(--cc-font); display: flex; flex-direction: column; height: 100%; }
+.cc-ib-bar { display: flex; flex-direction: column; gap: 8px; padding: 4px 4px 10px; border-bottom: 1px solid var(--cc-outline); }
+.cc-ib-tab {
+  font: 500 13px var(--cc-font); padding: 5px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--cc-outline); background: var(--cc-bg); color: var(--cc-text);
 }
-.cc-section-head-chats { border-top: 1px solid var(--cc-outline); margin-top: 6px; }
-.cc-count {
-  min-width: 20px; height: 20px; border-radius: 10px; background: var(--cc-disabled); color: var(--cc-text);
-  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; padding: 0 6px;
+.cc-ib-tab.cc-selected { background: var(--cc-primary); color: var(--cc-on-primary); border-color: var(--cc-primary); }
+.cc-ib-search {
+  font: 400 13px var(--cc-font); padding: 7px 10px; border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md);
 }
-.cc-request-row {
-  display: flex; gap: 10px; padding: 10px 12px; cursor: pointer; border-left: 3px solid transparent;
-  border-bottom: 1px solid var(--cc-outline);
+.cc-ib-search:focus { outline: 2px solid var(--cc-focus); border-color: transparent; }
+.cc-ib-list { display: flex; flex-direction: column; overflow-y: auto; }
+.cc-ib-row {
+  display: flex; gap: 10px; align-items: center; padding: 10px 8px; cursor: pointer; position: relative;
+  border-bottom: 1px solid var(--cc-outline); border-left: 3px solid transparent;
 }
-.cc-request-row:hover, .cc-request-row:focus-visible { background: var(--cc-surface-variant); outline: none; }
-.cc-request-row.cc-unseen { border-left-color: var(--cc-notification); }
-.cc-request-row.cc-done { opacity: .6; }
-.cc-request-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.cc-request-top { display: flex; justify-content: space-between; gap: 8px; }
-.cc-request-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cc-request-sub { color: var(--cc-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cc-request-kind-label { font-weight: 500; color: var(--cc-tertiary); }
-.cc-request-kind-label.cc-meeting { color: var(--cc-success); }
-.cc-request-snippet { color: var(--cc-text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cc-request-actions { margin-top: 6px; }
-.cc-request-actions .cc-btn { padding: 6px 12px; }
-.cc-empty { padding: 8px 12px 12px; color: var(--cc-text-muted); font: 400 13px var(--cc-font); }
-.cc-sent summary { padding: 8px 12px; cursor: pointer; font: 500 13px var(--cc-font); color: var(--cc-text-muted); }
+.cc-ib-row:hover { background: var(--cc-surface-variant); }
+.cc-ib-row.cc-selected { background: var(--cc-tertiary-container); border-left-color: var(--cc-tertiary); }
+.cc-ib-row:focus-visible { outline: 2px solid var(--cc-focus); outline-offset: -2px; }
+.cc-ib-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cc-ib-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.cc-ib-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-ib-needs .cc-ib-name { font-weight: 700; }
+.cc-ib-time { font-size: 11px; color: var(--cc-text-muted); flex: none; }
+.cc-ib-what { font-size: 12.5px; color: var(--cc-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-ib-needs .cc-ib-what { color: var(--cc-text); }
+.cc-ib-meeting { color: var(--cc-success) !important; font-weight: 500; }
+.cc-ib-connect { color: var(--cc-tertiary) !important; font-weight: 500; }
+.cc-ib-free { color: var(--cc-success); }
+.cc-ib-clash { color: var(--cc-warning); }
+.cc-ib-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cc-notification); flex: none; }
+.cc-ib-keys { font-size: 11px; color: var(--cc-on-disabled); padding: 10px 6px; }
+/* Middle: request card pinned over the conversation, or on its own when there's no chat yet. */
+.cc-ib-pin { margin-bottom: 12px; }
+.cc-ib-solo-on > :not(.cc-ib-solo) { display: none !important; }
+.cc-ib-solo { display: flex; flex-direction: column; gap: 10px; }
+.cc-ib-solo-note { padding: 0 4px; }
+.cc-ib-card {
+  font-family: var(--cc-font); display: flex; flex-direction: column; gap: 8px; padding: 16px;
+  border: 1px solid var(--cc-outline); border-left: 4px solid var(--cc-warning); border-radius: var(--cc-radius-md); background: var(--cc-bg);
+}
+.cc-ib-card-title { font-size: 16px; font-weight: 600; }
+.cc-ib-card-when { font-size: 14px; }
+.cc-ib-card-free { font-size: 13px; font-weight: 500; }
 
 /* ---------- booking calendar (inside Swapcard's Meet modal) ---------- */
 .cc-book { font-family: var(--cc-font); margin: 4px 0 12px; display: flex; flex-direction: column; gap: 8px; }

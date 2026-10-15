@@ -311,13 +311,14 @@
   CC.waitFor(patchRouter, { timeout: 30000, every: 250 });
 
   // Render a profile into any element (used by the inbox's right column).
-  const renderInto = async (el, personId) => {
+  // withRequest: false when the page already shows the request (the inbox pins its own card).
+  const renderInto = async (el, personId, { withRequest = true } = {}) => {
     el.dataset.ccPerson = personId;
     CC.fill(el, h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' })));
     try {
       const [p, reqs] = await Promise.all([CC.data.person(personId), CC.data.requests().catch(() => [])]);
       if (el.dataset.ccPerson !== personId) return;
-      renderProfile(p, (reqs || []).find((r) => r.personId === personId) || null, el);
+      renderProfile(p, withRequest ? (reqs || []).find((r) => r.personId === personId) || null : null, el);
     } catch (e) {
       CC.warn('profile', e);
       CC.fill(el, h('div', { class: 'cc-empty' }, 'Couldn’t load this profile.'));

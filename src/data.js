@@ -80,6 +80,26 @@
       }
     }`,
 
+    chats: `query CalmerCardChats($userId: String!) {
+      viewer {
+        ownedUsers(ids: [$userId]) {
+          id
+          channelsUsers(pagination: { limit: 100, offset: 0 }, hideEmptyChat: true) {
+            id notSeenMessageCount isMuted
+            channel {
+              id type name imageUrl
+              channelUsers(pagination: { limit: 10, offset: 0 }) {
+                id userId hasLeaved
+                user { id externalRessource(useCommunityProfile: true) { id displayName pictureUrl } }
+                profileRedirection { __typename ... on EventProfileRedirection { id eventSlug } }
+              }
+              messages(pagination: { limit: 1 }) { id content createdAt userId }
+            }
+          }
+        }
+      }
+    }`,
+
     requests: `query CalmerCardRequests {
       reqs: Core_requests(cursor: { first: 100 }, filters: { shouldRequestStatusIn: PENDING }) {
         totalCount
@@ -248,6 +268,34 @@
           return { name, type: f.__typename, value };
         }).filter((f) => f.name && f.value && (!Array.isArray(f.value) || f.value.length));
         return { ...person, fields, canMeet: !!(person.withEvent && person.withEvent.canMeet) };
+      });
+    },
+
+    // Your chat conversations (Swapcard's chat API), newest first.
+    async chats() {
+      const ev = await data.event();
+      return cached('chats', 15e3, async () => {
+        const r = await CC.query(Q.chats, { userId: ev.me.userId }, { client: 'chat' });
+        const me = ev.me.userId;
+        return r.viewer.ownedUsers[0].channelsUsers.map((cu) => {
+          const ch = cu.channel;
+          const others = ch.channelUsers.filter((u) => u.userId !== me && !u.hasLeaved);
+          const o = others[0] || {};
+          const prof = o.user && o.user.externalRessource;
+          const redir = o.profileRedirection || {};
+          const last = ch.messages[0];
+          return {
+            channelId: ch.id,
+            isGroup: others.length > 1,
+            title: others.length > 1 ? (ch.name || others.map((u) => u.user && u.user.externalRessource && u.user.externalRessource.displayName).filter(Boolean).join(', ')) : (prof && prof.displayName) || ch.name || 'Conversation',
+            photoUrl: others.length > 1 ? ch.imageUrl : prof && prof.pictureUrl,
+            userId: o.userId,
+            personId: redir.eventSlug === ev.slug ? redir.id : null,
+            unread: cu.notSeenMessageCount || 0,
+            muted: !!cu.isMuted,
+            last: last ? { text: last.content || '', at: new Date(last.createdAt), fromMe: last.userId === me } : null,
+          };
+        });
       });
     },
 
