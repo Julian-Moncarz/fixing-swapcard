@@ -32,6 +32,12 @@
   };
 
   const durMin = (s) => (s.end - s.start) / 60000;
+  // Clicking (or Enter on) a grey session opens it in the side panel.
+  const openOnClick = (el, s) => {
+    const go = (e) => { e.preventDefault(); e.stopPropagation(); ui.hideHoverCard(); CC.drawer.openSession(s.id); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(e); });
+  };
   // Venue logistics (venue hours, badge pickup) aren't things you attend; you just need the times.
   // They go in a one-line summary under each day's date instead of the grid.
   const LOGISTICS_RE = /^(venue (open|closed)|badge|early badge|registration|check-?in)\b/i;
@@ -57,6 +63,7 @@
         if (j) line.append(h('span', { class: 'cc-day-sep' }, ' · '));
         const el = h('span', { class: 'cc-day-item', tabindex: '0' }, `${shortTitle(s)} ${shortRange(s.start, s.end)}`);
         ui.hoverCard(el, () => sessionCard(s));
+              openOnClick(el, s);
         line.append(el);
       });
       cell.append(line);
@@ -227,6 +234,7 @@
               h('span', { class: 'cc-ghost-title' }, s.title),
               height > 38 ? h('span', { class: 'cc-ghost-meta' }, s.place || '') : null);
               ui.hoverCard(el, () => sessionCard(s));
+              openOnClick(el, s);
               area.append(el);
             }
           } else {
@@ -239,6 +247,7 @@
                 h('span', { class: 'cc-ghost-time' }, ui.time(s.start).replace(/\s?(AM|PM)$/i, '')),
                 h('span', { class: 'cc-ghost-rowtitle' }, s.title));
               ui.hoverCard(row, () => sessionCard(s));
+              openOnClick(row, s);
               group.append(row);
             }
             area.append(group);

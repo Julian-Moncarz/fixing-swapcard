@@ -1,25 +1,37 @@
-// Profile drawer: clicking any person opens their profile in a side panel instead of
-// navigating away. Swapcard forbids framing its own pages (CSP frame-ancestors), so we
-// render the profile from their data with their theme, and act on it in place:
-// accept/decline requests, connect, and book a meeting on a calendar of mutual free time.
+// Side panel: clicking any person or session opens it in a side panel instead of navigating
+// away. Swapcard forbids framing its own pages (CSP frame-ancestors), so we render from their
+// data with their theme, and act in place: accept/decline requests, connect, book a meeting on
+// a calendar of mutual free time, add/remove sessions. A Back button walks the panel's history.
 (() => {
   const CC = window.CalmerCard;
   if (!CC || CC.isEmbed || CC.drawer) return;
   const { h, ui } = CC;
 
   const PERSON_RE = /^\/event\/([^/]+)\/person\/([^/?#]+)/;
+  const SESSION_RE = /^\/event\/([^/]+)\/planning\/([^/?#]+)/;
+  // A Swapcard path -> what the panel should show, or null.
+  const viewFor = (path) => {
+    let m = path.match(PERSON_RE);
+    if (m) return { kind: 'person', id: m[2] };
+    m = path.match(SESSION_RE);
+    if (m) return { kind: 'session', id: m[2] };
+    return null;
+  };
+  const pathFor = (v) => `/event/${CC.route().slug}/${v.kind === 'session' ? 'planning' : 'person'}/${v.id}`;
   const HIDDEN_FIELDS = /visibility in attendee data sheet/i;
 
-  let root, body, titleEl, currentId = null, openToken = 0;
+  let root, body, titleEl, backBtn, current = null, stack = [], openToken = 0;
 
   const build = () => {
     if (root) return;
     titleEl = h('div', { class: 'cc-drawer-title' }, 'Profile');
-    const fullLink = h('a', { class: 'cc-btn cc-btn-ghost', href: '#', title: 'Open Swapcard’s full profile page (chat, sessions, notes)' }, 'Full page ↗');
+    backBtn = h('button', { class: 'cc-icon-btn', type: 'button', 'aria-label': 'Back', hidden: true }, '←');
+    backBtn.addEventListener('click', () => { const prev = stack.pop(); if (prev) show(prev, { push: false }); });
+    const fullLink = h('a', { class: 'cc-btn cc-btn-ghost', href: '#', title: 'Open Swapcard’s full page for this' }, 'Full page ↗');
     fullLink.addEventListener('click', (e) => {
       e.preventDefault();
-      if (!currentId) return;
-      const path = `/event/${CC.route().slug}/person/${currentId}`;
+      if (!current) return;
+      const path = pathFor(current);
       close();
       CC.allowNavigation = true;
       const router = window.next && window.next.router;
@@ -31,7 +43,7 @@
     root = h('div', { class: 'cc-drawer', role: 'dialog', 'aria-label': 'Profile', hidden: true },
       h('div', { class: 'cc-drawer-scrim' }),
       h('aside', { class: 'cc-drawer-panel' },
-        h('div', { class: 'cc-drawer-head' }, titleEl, h('div', { class: 'cc-row' }, fullLink, closeBtn)),
+        h('div', { class: 'cc-drawer-head' }, h('div', { class: 'cc-row cc-drawer-titlewrap' }, backBtn, titleEl), h('div', { class: 'cc-row' }, fullLink, closeBtn)),
         body));
     root.querySelector('.cc-drawer-scrim').addEventListener('click', () => close());
     document.body.append(root);
@@ -40,7 +52,8 @@
   const close = () => {
     if (!root || root.hidden) return;
     root.hidden = true;
-    currentId = null;
+    current = null;
+    stack = [];
     document.documentElement.classList.remove('cc-drawer-open');
     CC.emit('drawer-closed');
   };
@@ -160,42 +173,112 @@
       otherFields.map(fieldBlock));
   };
 
-  const open = async (personId, { request } = {}) => {
+  // ---------- session rendering ----------
+  const personRow = (p) => {
+    const name = [p.firstName, p.lastName].filter(Boolean).join(' ');
+    // A real link, so Cmd/middle-click and "Open in new tab" work; a plain click stays in the panel.
+    const row = h('a', { class: 'cc-person-row', href: pathFor({ kind: 'person', id: p.id }) },
+      ui.avatar(p.photoUrl, name, 32),
+      h('span', { class: 'cc-person-row-text' },
+        h('span', { class: 'cc-person-row-name' }, name),
+        (p.jobTitle || p.organization) && h('span', { class: 'cc-person-row-sub' }, [p.jobTitle, p.organization].filter(Boolean).join(' · '))));
+    row.addEventListener('click', (e) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      show({ kind: 'person', id: p.id });
+    });
+    return row;
+  };
+
+  const renderSession = (s) => {
+    titleEl.textContent = s.title;
+    const seats = s.maxSeats ? (s.remainingSeats > 0 ? `${s.remainingSeats} of ${s.maxSeats} seats left` : 'No seats left') : null;
+    const toggle = ui.button(s.attending ? 'Remove from schedule' : 'Add to schedule', {
+      variant: s.attending ? 'secondary' : 'primary',
+      onClick: async () => {
+        const now = await CC.data.toggleSession(s.id);
+        s.attending = now;
+        toggle.textContent = now ? 'Remove from schedule' : 'Add to schedule';
+        toggle.className = 'cc-btn ' + (now ? 'cc-btn-secondary' : 'cc-btn-primary');
+        status.textContent = now ? 'In your schedule ✓' : '';
+        ui.toast(now ? `Added “${s.title}”` : `Removed “${s.title}”`, 'success');
+      },
+    });
+    if (!s.attending && s.maxSeats && s.remainingSeats <= 0) { toggle.disabled = true; toggle.textContent = 'Full'; }
+    const status = h('div', { class: 'cc-p-status' }, s.attending ? 'In your schedule ✓' : '');
+    const desc = CC.safeHtml(s.html);
+    CC.fill(body,
+      h('div', { class: 'cc-s-head' },
+        h('div', { class: 'cc-p-name' }, s.title),
+        h('div', { class: 'cc-p-sub' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
+        s.place && h('div', { class: 'cc-p-sub' }, '📍 ' + s.place),
+        seats && h('div', { class: 'cc-p-sub' + (s.remainingSeats > 0 ? '' : ' cc-danger') }, seats),
+        status,
+        s.tags.length > 0 && h('div', { class: 'cc-chips cc-p-links' }, s.tags.map((t) => h('span', { class: 'cc-chip' }, t)))),
+      (s.canBookmark || s.attending || s.maxSeats) ? h('div', { class: 'cc-row cc-p-actions' }, toggle) : null,
+      desc && h('section', { class: 'cc-p-field' }, h('div', { class: 'cc-p-label' }, 'About'), h('div', { class: 'cc-p-text cc-s-desc', html: desc })),
+      s.speakers.length > 0 && h('section', { class: 'cc-p-field' },
+        h('div', { class: 'cc-p-label' }, s.speakers.length > 1 ? 'Speakers' : 'Speaker'),
+        h('div', { class: 'cc-person-list' }, s.speakers.map(personRow))),
+      h('section', { class: 'cc-p-field' },
+        h('div', { class: 'cc-p-label' }, `Registered (${s.attendeeCount})`),
+        s.attendees.length
+          ? h('div', { class: 'cc-person-list' }, s.attendees.map(personRow))
+          : h('div', { class: 'cc-muted cc-small' }, 'Nobody yet.')));
+  };
+
+  // ---------- showing a view, with history ----------
+  const skeleton = () => h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' }));
+
+  // view: { kind: 'person' | 'session', id, request? }. push: keep the current view for Back.
+  const show = async (view, { push = true } = {}) => {
     build();
+    const wasOpen = !root.hidden;
+    if (push && wasOpen && current && !(current.kind === view.kind && current.id === view.id)) stack.push(current);
+    if (!wasOpen) stack = [];
+    current = view;
+    backBtn.hidden = !stack.length;
     const token = ++openToken;
-    currentId = personId;
     titleEl.textContent = 'Loading…';
-    body.replaceChildren(h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' })));
+    body.replaceChildren(skeleton());
     root.hidden = false;
     document.documentElement.classList.add('cc-drawer-open');
     try {
-      const [p, reqs] = await Promise.all([CC.data.person(personId), request ? Promise.resolve(null) : CC.data.requests().catch(() => [])]);
-      if (token !== openToken) return;
-      const req = request || (reqs || []).find((r) => r.personId === personId) || null;
-      renderProfile(p, req);
+      if (view.kind === 'session') {
+        const s = await CC.data.session(view.id);
+        if (token !== openToken) return;
+        renderSession(s);
+      } else {
+        const [p, reqs] = await Promise.all([CC.data.person(view.id), view.request ? Promise.resolve(null) : CC.data.requests().catch(() => [])]);
+        if (token !== openToken) return;
+        renderProfile(p, view.request || (reqs || []).find((r) => r.personId === view.id) || null);
+      }
       body.scrollTop = 0;
     } catch (e) {
       if (token !== openToken) return;
       CC.warn('drawer', e);
-      titleEl.textContent = 'Profile';
-      body.replaceChildren(h('div', { class: 'cc-empty' }, 'Couldn’t load this profile. Use “Full page” instead.'));
+      titleEl.textContent = view.kind === 'session' ? 'Session' : 'Profile';
+      body.replaceChildren(h('div', { class: 'cc-empty' }, 'Couldn’t load this. Use “Full page” instead.'));
     }
   };
+  const open = (personId, { request } = {}) => show({ kind: 'person', id: personId, request });
+  const openSession = (id) => show({ kind: 'session', id });
 
-  // ---------- intercept navigation to profiles ----------
+  // ---------- intercept navigation to people and sessions ----------
   document.addEventListener('click', (e) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target.closest && e.target.closest('a[href]');
-    if (!a || a.target === '_blank' || a.closest('.cc-drawer')) return;
+    if (!a || a.closest('.cc-drawer')) return;
     // Let Swapcard's own buttons inside a row (Connect, Message…) work normally.
     if (e.target.closest('button') && a.contains(e.target.closest('button'))) return;
     let url;
     try { url = new URL(a.href, location.href); } catch { return; }
-    const m = url.origin === location.origin && url.pathname.match(PERSON_RE);
-    if (!m) return;
+    const view = url.origin === location.origin && viewFor(url.pathname);
+    if (!view) return;
     e.preventDefault();
     e.stopPropagation();
-    open(m[2]);
+    ui.hideHoverCard();
+    show(view);
   }, true);
 
   document.addEventListener('keydown', (e) => {
@@ -211,9 +294,9 @@
       const target = typeof as === 'string' ? as : typeof url === 'string' ? url : (url && url.pathname) || '';
       let path = target;
       try { path = new URL(target, location.href).pathname; } catch {}
-      const m = path.match(PERSON_RE);
-      if (m && !CC.allowNavigation && CC.route().page !== 'my-profile') {
-        open(m[2]);
+      const view = viewFor(path);
+      if (view && !CC.allowNavigation) {
+        show(view);
         return Promise.resolve(true);
       }
       return orig(url, as, opts);
@@ -237,5 +320,5 @@
     }
   };
 
-  CC.drawer = { open, openPerson: open, close, renderInto, isOpen: () => !!root && !root.hidden };
+  CC.drawer = { open, openPerson: open, openSession, show, close, renderInto, isOpen: () => !!root && !root.hidden };
 })();

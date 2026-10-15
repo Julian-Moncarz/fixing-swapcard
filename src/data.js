@@ -67,6 +67,19 @@
       }
     }`,
 
+    session: `query CalmerCardSession($id: ID!, $eventId: ID!) {
+      planning: Core_planning(_id: $id, eventId: $eventId) {
+        id beginsAt endsAt place format htmlDescription maxSeats remainingSeats
+        categories { name }
+        withEvent(eventId: $eventId) {
+          title
+          bookmark { isBookmarked canBookmark }
+          firstSpeakers { id firstName lastName jobTitle organization photoUrl }
+          attendeeProfiles(cursor: { first: 100 }) { totalCount nodes { id firstName lastName jobTitle organization photoUrl } }
+        }
+      }
+    }`,
+
     requests: `query CalmerCardRequests {
       reqs: Core_requests(cursor: { first: 100 }, filters: { shouldRequestStatusIn: PENDING }) {
         totalCount
@@ -236,6 +249,29 @@
         }).filter((f) => f.name && f.value && (!Array.isArray(f.value) || f.value.length));
         return { ...person, fields, canMeet: !!(person.withEvent && person.withEvent.canMeet) };
       });
+    },
+
+    async session(id) {
+      const ev = await data.event();
+      const { planning: p } = await CC.query(Q.session, { id, eventId: ev.id });
+      const w = p.withEvent || {};
+      return {
+        id: p.id,
+        title: w.title,
+        start: new Date(p.beginsAt),
+        end: new Date(p.endsAt),
+        place: p.place,
+        format: p.format,
+        html: p.htmlDescription,
+        maxSeats: p.maxSeats,
+        remainingSeats: p.remainingSeats,
+        tags: (p.categories || []).map((c) => c.name),
+        attending: !!(w.bookmark && w.bookmark.isBookmarked),
+        canBookmark: !!(w.bookmark && w.bookmark.canBookmark),
+        speakers: w.firstSpeakers || [],
+        attendees: (w.attendeeProfiles && w.attendeeProfiles.nodes) || [],
+        attendeeCount: (w.attendeeProfiles && w.attendeeProfiles.totalCount) || 0,
+      };
     },
 
     // Pending requests for the current event (meeting + connection, received + sent).
