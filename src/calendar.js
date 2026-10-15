@@ -88,27 +88,6 @@
   };
 
   const durMin = (s) => (s.end - s.start) / 60000;
-  // Hovering a session shows when it is: a band across its day column from start to end.
-  let band = null;
-  const showSpan = (el, s) => {
-    const col = el.closest(sc('styles__ColumnContainer'));
-    const wrapper = el.closest(sc('styles__ColumnsWrapper'));
-    if (!col || !wrapper) return;
-    const ppm = pxPerMin(wrapper);
-    band = band || h('div', { class: 'cc-time-band', 'aria-hidden': 'true' });
-    band.style.top = ui.minutes(s.start) * ppm + 'px';
-    band.style.height = Math.max(2, ((s.end - s.start) / 60000) * ppm) + 'px';
-    if (band.parentElement !== col) col.append(band);
-    band.hidden = false;
-  };
-  const hideSpan = () => { if (band) band.hidden = true; };
-  const spanOnHover = (el, s) => {
-    el.addEventListener('mouseenter', () => showSpan(el, s));
-    el.addEventListener('mouseleave', hideSpan);
-    el.addEventListener('focus', () => showSpan(el, s));
-    el.addEventListener('blur', hideSpan);
-  };
-
   // Clicking (or Enter on) a grey session opens it in the side panel.
   const openOnClick = (el, s) => {
     const go = (e) => { e.preventDefault(); e.stopPropagation(); ui.hideHoverCard(); CC.drawer.openSession(s.id); };
@@ -198,7 +177,7 @@
     return h('div', { class: 'cc-session-card' },
       clash && h('div', { class: 'cc-session-clash' }, `Clashes with your ${clash.title.replace(/^Meeting/, 'meeting')} (${ui.range(clash.start, clash.end)})`),
       h('div', { class: 'cc-session-title' }, s.title),
-      s.place && h('div', { class: 'cc-session-meta' }, '📍 ' + s.place),
+      h('div', { class: 'cc-session-meta' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
       seats && h('div', { class: 'cc-session-meta' + (s.remainingSeats > 0 ? '' : ' cc-danger') }, seats),
       s.tags.length > 0 && h('div', { class: 'cc-chips' }, s.tags.map((t) => h('span', { class: 'cc-chip' }, t))),
       s.speakers.length > 0 && h('div', { class: 'cc-session-meta' }, 'With ' + s.speakers.map((p) => `${p.firstName} ${p.lastName}`).join(', ')),
@@ -213,7 +192,9 @@
   // Squeeze Swapcard's own blocks into the left part of each day, keeping their side-by-side
   // layout. They position blocks with inline px/% left and width; we rescale those, and redo it
   // whenever React rewrites them.
-  const OWN_SHARE = 0.58;
+  // Your blocks get the left part of each day; sessions you're not attending get the rest.
+  // In day view there's room to give the options more space.
+  const ownShare = () => (dayFocus ? 0.4 : 0.58);
   const fracOf = (v, W) => {
     if (!v) return null;
     const n = parseFloat(v);
@@ -230,8 +211,9 @@
       if (st.width !== b.dataset.ccWidth) b.dataset.ccOrigWidth = st.width || W + 'px';
       const l = fracOf(b.dataset.ccOrigLeft, W) || 0;
       const w = fracOf(b.dataset.ccOrigWidth, W) || 1;
-      const nl = (l * OWN_SHARE * 100).toFixed(2) + '%';
-      const nw = `calc(${(w * OWN_SHARE * 100).toFixed(2)}% - 6px)`;
+      const share = ownShare();
+      const nl = (l * share * 100).toFixed(2) + '%';
+      const nw = `calc(${(w * share * 100).toFixed(2)}% - 6px)`;
       // Only write when something changed, or our own writes would re-trigger the observer forever.
       if (b.dataset.ccTarget === nl + '|' + nw && st.left === b.dataset.ccLeft && st.width === b.dataset.ccWidth) continue;
       st.setProperty('left', nl);
@@ -303,6 +285,72 @@
     styleObs = { obs, target: wrapper };
   };
 
+  // ---------- day view: click a day's header (or a busy-time chip) to give that day the full width ----------
+  let dayFocus = null; // 'YYYY-MM-DD' or null
+  const setDayFocus = (key) => {
+    dayFocus = key;
+    document.documentElement.classList.toggle('cc-dayview', !!key);
+    document.documentElement.style.setProperty('--cc-own-share', String(ownShare()));
+    ui.hideHoverCard();
+    render(true);
+  };
+  const applyDayFocus = (cols, days) => {
+    const cells = CC.$$(sc('desktop-date-header__DayCell'));
+    if (dayFocus && !days.includes(dayFocus)) dayFocus = null;
+    document.documentElement.classList.toggle('cc-dayview', !!dayFocus);
+    document.documentElement.style.setProperty('--cc-own-share', String(ownShare()));
+    cols.forEach((c, i) => c.classList.toggle('cc-day-off', !!dayFocus && days[i] !== dayFocus));
+    cells.forEach((cell, i) => {
+      cell.classList.toggle('cc-day-off', !!dayFocus && days[i] !== dayFocus);
+      cell.classList.add('cc-day-cell');
+      cell.title = dayFocus ? 'Back to all days' : 'Show just this day';
+      cell.querySelector(':scope > .cc-day-back')?.remove();
+      if (dayFocus && days[i] === dayFocus) cell.prepend(h('span', { class: 'cc-day-back' }, '← All days'));
+      if (!cell.dataset.ccDayClick) {
+        cell.dataset.ccDayClick = '1';
+        cell.addEventListener('click', (e) => {
+          if (e.target.closest('.cc-day-item')) return; // logistics items have their own click
+          const k = cell.dataset.ccDayKey;
+          if (k) setDayFocus(dayFocus ? null : k);
+        });
+      }
+      if (days[i]) cell.dataset.ccDayKey = days[i];
+    });
+  };
+
+  // A busy time: hover shows every session as a mini timeline (full titles, length bars).
+  const clusterCard = (cl, col, hid) => {
+    const span = cl.end - cl.start;
+    const rows = cl.items.slice().sort((a, b) => a.start - b.start || a.end - b.end).map((s) => {
+      const left = ((s.start - cl.start) / span) * 100;
+      const width = Math.max(4, ((s.end - s.start) / span) * 100);
+      const hiddenNow = isHidden(s, hid);
+      const x = h('button', { type: 'button', class: 'cc-cl-btn', title: hiddenNow ? 'Unhide' : 'Not for me', 'aria-label': (hiddenNow ? 'Unhide ' : 'Hide ') + s.title }, hiddenNow ? '↺' : '✕');
+      x.addEventListener('click', (e) => { e.stopPropagation(); hiddenNow ? unhideSession(s) : hideSession(s); });
+      const add = h('button', { type: 'button', class: 'cc-cl-btn cc-cl-add', title: 'Add to schedule', 'aria-label': 'Add ' + s.title }, '+');
+      add.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        add.disabled = true;
+        try { await CC.data.toggleSession(s.id); ui.hideHoverCard(); ui.toast(`Added “${s.title}”`, 'success'); }
+        catch (err) { add.disabled = false; ui.toast('Couldn’t add: ' + (err.message || err), 'error'); }
+      });
+      if (s.maxSeats && s.remainingSeats <= 0) { add.disabled = true; add.title = 'Full'; }
+      const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
+        h('div', { class: 'cc-cl-main' },
+          h('div', { class: 'cc-cl-title' }, s.title),
+          h('div', { class: 'cc-cl-track' }, h('div', { class: 'cc-cl-bar', style: { left: left + '%', width: width + '%' } })),
+          h('div', { class: 'cc-cl-meta' }, [ui.range(s.start, s.end), clashOf(s) ? 'clashes with a meeting' : null].filter(Boolean).join(' · '))),
+        h('div', { class: 'cc-cl-actions' }, add, x));
+      row.addEventListener('click', () => { ui.hideHoverCard(); CC.drawer.openSession(s.id); });
+      return row;
+    });
+    return h('div', { class: 'cc-cl-card' },
+      h('div', { class: 'cc-cl-head' },
+        h('span', null, `${cl.items.length} sessions you’re not attending`),
+        h('span', { class: 'cc-cl-hint' }, 'Click for day view')),
+      rows);
+  };
+
   let rendering = false, lastSig = '';
   const render = async (force) => {
     if (rendering || !isCalendarPage()) return;
@@ -315,7 +363,8 @@
     if (show) cols.forEach(scaleBlocks); else unscaleBlocks();
     cols.forEach(fitBlocks);
     cols.forEach(decorateOwnBlocks);
-    const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'));
+    const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'))
+      && (!dayFocus || !!document.querySelector(`${sc('desktop-date-header__DayCell')}.cc-day-off`));
     const sig = cols.length + ':' + show;
     if (!force && intact && sig === lastSig) return;
     rendering = true;
@@ -332,6 +381,7 @@
       const now = CC.now();
       updateControls(sessions, hid);
       const days = columnDays(sessions);
+      applyDayFocus(cols, days);
       renderDayInfo(sessions, days);
       const ppm = pxPerMin(wrapper);
       cols.forEach((col, i) => {
@@ -355,39 +405,33 @@
         const area = h('div', { class: 'cc-ghost-area', style: { right: '2px' } });
         layer.append(area);
 
-        // One or two side by side, or a single block listing a busy cluster.
+        // A few at once sit side by side as real blocks. A busy time becomes a small "+N" chip
+        // (hover for the list, click for day view); in day view everything is a real block.
+        const maxLanes = dayFocus ? 6 : 2;
         for (const cl of clusters(todays.filter((s) => !isLogistics(s)))) {
           const n = assignLanes(cl.items);
-          if (n <= 2) {
+          if (n <= maxLanes) {
             for (const s of cl.items) {
               const height = hOf(s.start, s.end);
               const el = h('div', {
                 class: classesFor(s, 'cc-ghost'), tabindex: '0', role: 'button', 'aria-label': label(s),
                 style: { top: yOf(s.start) + 'px', height: height + 'px', left: `calc(${(s._lane * 100) / n}% + 1px)`, width: `calc(${100 / n}% - 3px)` },
               },
-              h('span', { class: 'cc-ghost-title' }, s.title),
-              height > 38 ? h('span', { class: 'cc-ghost-meta' }, s.place || '') : null,
+              h('span', { class: 'cc-ghost-title', style: { webkitLineClamp: String(Math.max(1, Math.floor((height - 6) / 15))) } }, s.title),
               xBtn(s));
               ui.hoverCard(el, () => sessionCard(s));
               openOnClick(el, s);
-              spanOnHover(el, s);
               area.append(el);
             }
           } else {
-            const group = h('div', {
-              class: 'cc-ghost cc-ghost-group', role: 'group', 'aria-label': `${cl.items.length} sessions you're not attending`,
-              style: { top: yOf(cl.start) + 'px', height: hOf(cl.start, cl.end) + 'px', left: '1px', width: 'calc(100% - 3px)' },
-            }, h('span', { class: 'cc-ghost-count' }, `${cl.items.length} sessions`));
-            for (const s of cl.items.sort((a, b) => a.start - b.start)) {
-              const row = h('div', { class: classesFor(s, 'cc-ghost-row'), tabindex: '0', role: 'button', 'aria-label': label(s) },
-                h('span', { class: 'cc-ghost-rowtitle' }, s.title),
-                xBtn(s));
-              ui.hoverCard(row, () => sessionCard(s));
-              openOnClick(row, s);
-              spanOnHover(row, s);
-              group.append(row);
-            }
-            area.append(group);
+            const chip = h('button', {
+              type: 'button', class: 'cc-ghost-chip',
+              'aria-label': `${cl.items.length} sessions you're not attending. Click for day view`,
+              style: { top: yOf(cl.start) + 'px' },
+            }, `${cl.items.length} sessions`);
+            ui.hoverCard(chip, () => clusterCard(cl, col, hid));
+            chip.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
+            area.append(chip);
           }
         }
         col.prepend(layer);
@@ -469,11 +513,15 @@
     if (calBtn) { switched = true; calBtn.click(); }
   };
 
-  CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf };
+  CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf, setDayFocus };
   CC.on('dom', () => { preferCalendar(); render(false); });
   CC.on('route', () => {
-    switched = false; lastSig = '';
+    switched = false; lastSig = ''; dayFocus = null;
+    document.documentElement.classList.remove('cc-dayview');
     if (CC.route().page !== 'my-schedule') document.documentElement.classList.remove('cc-ghosts-on');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dayFocus && !(CC.drawer && CC.drawer.isOpen())) setDayFocus(null);
   });
   CC.on('schedule-changed', () => setTimeout(() => render(true), 600));
   let resizeTimer;
