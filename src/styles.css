@@ -153,8 +153,7 @@ html.cc-on [class*="timeline-block__BlockWrapper-sc-"] [class*="item__Container-
 }
 .cc-cl-btn:hover { border-color: var(--cc-danger); color: var(--cc-danger); background: var(--cc-danger-container); }
 .cc-cl-add:hover { border-color: var(--cc-success); color: var(--cc-success); background: var(--cc-success-container); }
-.cc-cl-row.cc-ghost-hidden .cc-cl-title { text-decoration: line-through; opacity: .6; }
-.cc-cl-row.cc-ghost-clash .cc-cl-title { opacity: .6; }
+.cc-cl-row.cc-ghost-hidden .cc-cl-title { text-decoration: line-through; }
 
 /* Day view: one day gets the full width. */
 .cc-day-off { display: none !important; }
@@ -176,9 +175,6 @@ html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { f
 .cc-ghost-rowtitle { min-width: 0; flex: 1; }
 .cc-ghost-row:hover > .cc-ghost-x, .cc-ghost-row:focus-within > .cc-ghost-x { opacity: 1; }
 .cc-ghost-hidden .cc-ghost-title, .cc-ghost-hidden .cc-ghost-rowtitle, .cc-ghost-row.cc-ghost-hidden .cc-ghost-rowtitle { text-decoration: line-through; }
-.cc-ghost.cc-ghost-hidden, .cc-ghost-row.cc-ghost-hidden { opacity: .5; }
-/* Clashes with one of your meetings: still there, but quieter. */
-.cc-ghost.cc-ghost-clash:not(:hover), .cc-ghost-row.cc-ghost-clash:not(:hover) { opacity: .45; }
 .cc-session-hide { margin-top: 2px; }
 .cc-session-hide .cc-btn { padding: 6px 10px; font-size: 12px; }
 /* ✕ to leave a session you're registered for; it replaces Swapcard's calendar icon on hover. */

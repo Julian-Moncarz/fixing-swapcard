@@ -150,10 +150,6 @@
     return ends.length;
   };
 
-  // Your meetings, for spotting sessions that clash with them (refreshed on each render).
-  let myMeetings = [];
-  const clashOf = (s) => myMeetings.find((m) => m.start < s.end && m.end > s.start) || null;
-
   const sessionCard = (s) => {
     const seats = s.maxSeats ? (s.remainingSeats > 0 ? `${s.remainingSeats} seats left` : 'No seats left') : null;
     const addBtn = ui.button('Add to schedule', {
@@ -340,7 +336,7 @@
         catch (err) { add.disabled = false; ui.toast('Couldn’t add: ' + (err.message || err), 'error'); }
       });
       if (s.maxSeats && s.remainingSeats <= 0) { add.disabled = true; add.title = 'Full'; }
-      const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
+      const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
         h('div', { class: 'cc-cl-main' },
           h('div', { class: 'cc-cl-title' }, s.title),
           h('div', { class: 'cc-cl-meta' }, ui.range(s.start, s.end))),
@@ -378,9 +374,8 @@
       document.documentElement.classList.toggle('cc-ghosts-on', show);
       cols.forEach((c) => { c.__ccGhostSpans = []; });
       if (!show) return;
-      const [sessions, agenda] = await Promise.all([CC.data.sessions(), CC.data.agenda().catch(() => [])]);
+      const sessions = await CC.data.sessions();
       sessionsCache = sessions;
-      myMeetings = agenda.filter((a) => a.kind === 'meeting' && a.status !== 'DECLINED' && a.status !== 'CANCELED');
       const hid = loadHidden();
       const showHidden = showHiddenPref();
       const now = CC.now();
@@ -395,7 +390,7 @@
         const layer = h('div', { class: 'cc-ghost-layer', 'aria-label': 'Sessions you are not attending' });
         // Not attending, not over yet, and not hidden (unless you're looking at hidden ones).
         const todays = sessions.filter((s) => !s.attending && ui.dayKey(s.start) === key && s.end > now && (showHidden || !isHidden(s, hid)));
-        const classesFor = (s, base) => base + (isHidden(s, hid) ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : '');
+        const classesFor = (s, base) => base + (isHidden(s, hid) ? ' cc-ghost-hidden' : '');
         // ✕ to hide (or ↺ to unhide) without opening anything.
         const xBtn = (s) => {
           const hiddenNow = isHidden(s, hid);
