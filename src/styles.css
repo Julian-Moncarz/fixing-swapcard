@@ -133,8 +133,9 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 }
 .cc-ghost:hover > .cc-ghost-x, .cc-ghost:focus-within > .cc-ghost-x { opacity: 1; }
 .cc-ghost-x:hover { background: var(--cc-danger-container); color: var(--cc-danger); box-shadow: 0 0 0 1px var(--cc-danger); }
-.cc-ghost-row { position: relative; padding-right: 20px; }
-.cc-ghost-row > .cc-ghost-x { top: -1px; right: 0; width: 16px; height: 16px; line-height: 16px; }
+.cc-ghost-row { position: relative; width: 100%; min-width: 0; box-sizing: border-box; }
+.cc-ghost-row > .cc-ghost-x { top: 1px; right: 3px; width: 16px; height: 16px; line-height: 16px; }
+.cc-ghost-rowtitle { min-width: 0; flex: 1; }
 .cc-ghost-row:hover > .cc-ghost-x, .cc-ghost-row:focus-within > .cc-ghost-x { opacity: 1; }
 .cc-ghost-hidden .cc-ghost-title, .cc-ghost-hidden .cc-ghost-rowtitle, .cc-ghost-row.cc-ghost-hidden .cc-ghost-rowtitle { text-decoration: line-through; }
 .cc-ghost.cc-ghost-hidden, .cc-ghost-row.cc-ghost-hidden { opacity: .5; }
@@ -164,8 +165,8 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 .cc-ghost-group { gap: 0; padding: 2px 4px; cursor: default; }
 .cc-ghost-count { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #aaa; }
 .cc-ghost-row {
-  display: flex; gap: 4px; white-space: nowrap; overflow: hidden; cursor: pointer; border-radius: 3px;
-  padding: 0 2px; font-size: 11.5px; line-height: 16px; flex: none;
+  display: flex; gap: 4px; white-space: nowrap; cursor: pointer; border-radius: 3px;
+  padding: 1px 22px 1px 2px; font-size: 11.5px; line-height: 16px; flex: none;
 }
 .cc-ghost-row:hover, .cc-ghost-row:focus-visible { background: var(--cc-tertiary-container); color: var(--cc-text); outline: none; }
 .cc-ghost-time { color: #b0b0b0; flex: none; }
