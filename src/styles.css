@@ -179,10 +179,6 @@ html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { f
 .cc-ghost.cc-ghost-hidden, .cc-ghost-row.cc-ghost-hidden { opacity: .5; }
 /* Clashes with one of your meetings: still there, but quieter. */
 .cc-ghost.cc-ghost-clash:not(:hover), .cc-ghost-row.cc-ghost-clash:not(:hover) { opacity: .45; }
-.cc-session-clash {
-  font-size: 12px; padding: 6px 8px; border-radius: var(--cc-radius-sm);
-  background: var(--cc-warning-container); color: var(--cc-warning);
-}
 .cc-session-hide { margin-top: 2px; }
 .cc-session-hide .cc-btn { padding: 6px 10px; font-size: 12px; }
 /* ✕ to leave a session you're registered for; it replaces Swapcard's calendar icon on hover. */

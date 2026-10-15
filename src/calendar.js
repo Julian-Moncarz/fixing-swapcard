@@ -166,7 +166,6 @@
     });
     if (s.maxSeats && s.remainingSeats <= 0) { addBtn.disabled = true; addBtn.textContent = 'Full'; }
     const desc = CC.textFromHtml(s.html);
-    const clash = clashOf(s);
     const hidden = isHidden(s);
     const fam = familyOf(s);
     const famCount = fam ? sessionsCache.filter((x) => familyOf(x) && famKey(familyOf(x)) === famKey(fam) && !x.attending).length : 0;
@@ -175,7 +174,6 @@
       : [ui.button('Not for me', { variant: 'ghost', title: 'Hide this session from your calendar', onClick: async () => hideSession(s) }),
         fam && famCount > 1 ? ui.button(`Hide all “${fam}” (${famCount})`, { variant: 'ghost', onClick: async () => hideFamily(fam, famCount) }) : null];
     return h('div', { class: 'cc-session-card' },
-      clash && h('div', { class: 'cc-session-clash' }, `Clashes with your ${clash.title.replace(/^Meeting/, 'meeting')} (${ui.range(clash.start, clash.end)})`),
       h('div', { class: 'cc-session-title' }, s.title),
       h('div', { class: 'cc-session-meta' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
       seats && h('div', { class: 'cc-session-meta' + (s.remainingSeats > 0 ? '' : ' cc-danger') }, seats),
@@ -345,7 +343,7 @@
       const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
         h('div', { class: 'cc-cl-main' },
           h('div', { class: 'cc-cl-title' }, s.title),
-          h('div', { class: 'cc-cl-meta' }, [ui.range(s.start, s.end), clashOf(s) ? 'clashes with a meeting' : null].filter(Boolean).join(' · '))),
+          h('div', { class: 'cc-cl-meta' }, ui.range(s.start, s.end))),
         h('div', { class: 'cc-cl-actions' }, add, x));
       row.addEventListener('click', () => { ui.hideHoverCard(); CC.drawer.openSession(s.id); });
       return row;
