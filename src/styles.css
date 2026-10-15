@@ -129,11 +129,13 @@ html.cc-on [class*="timeline-block__BlockWrapper-sc-"] [class*="item__Container-
 
 /* Busy time: a small "+N" chip instead of a cramped list. */
 .cc-ghost-chip {
-  position: absolute; left: 2px; white-space: nowrap; pointer-events: auto; cursor: pointer; z-index: 1;
-  font: 600 11px/1 var(--cc-font); color: var(--cc-tertiary); background: var(--cc-tertiary-container);
-  border: 1px solid var(--cc-tertiary); border-radius: 999px; padding: 4px 8px;
+  position: absolute; left: 1px; width: calc(100% - 3px); box-sizing: border-box; pointer-events: auto; cursor: pointer;
+  display: flex; align-items: flex-start; padding: 4px 8px; text-align: left;
+  border: 1px dashed #c8c8c8; border-radius: var(--cc-radius-md); background: rgba(250, 250, 250, .92);
+  font: 600 12px/1.25 var(--cc-font); color: #8a8a8a;
 }
-.cc-ghost-chip:hover, .cc-ghost-chip:focus-visible { background: var(--cc-tertiary); color: #fff; outline: none; }
+.cc-ghost-chip:hover, .cc-ghost-chip:focus-visible { border-color: var(--cc-tertiary); color: var(--cc-text-muted); background: #fff; outline: none; }
+.cc-ghost-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cc-cl-card { display: flex; flex-direction: column; gap: 2px; }
 .cc-cl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-weight: 600; font-size: 13px; }
 .cc-cl-dayview {
