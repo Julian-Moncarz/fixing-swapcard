@@ -120,6 +120,8 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 /* ---------- calendar ghosts ---------- */
 /* Your blocks take the left 58% of each day; sessions you're not attending get the right 42%. */
 .cc-fit-hidden { display: none !important; }
+/* A little air between back-to-back blocks (Swapcard sizes them to the exact minute). */
+html.cc-on [class*="timeline-block__BlockWrapper-sc-"] [class*="item__Container-sc-"] { height: calc(100% - 3px) !important; box-sizing: border-box; }
 .cc-fit-clamp [class*="item__Title-sc-"], .cc-fit-clamp [class*="item__Name-sc-"] {
   display: -webkit-box !important; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;
 }
@@ -134,7 +136,10 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 .cc-ghost-chip:hover, .cc-ghost-chip:focus-visible { background: var(--cc-tertiary); color: #fff; outline: none; }
 .cc-cl-card { display: flex; flex-direction: column; gap: 2px; }
 .cc-cl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-weight: 600; font-size: 13px; }
-.cc-cl-hint { font-weight: 400; font-size: 11px; color: var(--cc-text-muted); }
+.cc-cl-dayview {
+  border: 0; background: none; padding: 0; cursor: pointer; font: 500 12px var(--cc-font); color: var(--cc-focus); white-space: nowrap;
+}
+.cc-cl-dayview:hover { text-decoration: underline; }
 .cc-cl-row { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: var(--cc-radius-sm); cursor: pointer; }
 .cc-cl-row:hover, .cc-cl-row:focus-visible { background: var(--cc-surface-variant); outline: none; }
 .cc-cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }

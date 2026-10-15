@@ -322,8 +322,14 @@
     });
   };
 
+  const dayViewBtn = (key) => {
+    const b = h('button', { type: 'button', class: 'cc-cl-dayview' }, 'Open day view →');
+    b.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
+    return b;
+  };
+
   // A busy time: hover lists every session with its full title and time.
-  const clusterCard = (cl, col, hid) => {
+  const clusterCard = (cl, col, hid, key) => {
     const rows = cl.items.slice().sort((a, b) => a.start - b.start || a.end - b.end).map((s) => {
       const hiddenNow = isHidden(s, hid);
       const x = h('button', { type: 'button', class: 'cc-cl-btn', title: hiddenNow ? 'Unhide' : 'Not for me', 'aria-label': (hiddenNow ? 'Unhide ' : 'Hide ') + s.title }, hiddenNow ? '↺' : '✕');
@@ -347,7 +353,7 @@
     return h('div', { class: 'cc-cl-card' },
       h('div', { class: 'cc-cl-head' },
         h('span', null, `${cl.items.length} sessions you’re not attending`),
-        h('span', { class: 'cc-cl-hint' }, 'Click for day view')),
+        dayViewBtn(key)),
       rows);
   };
 
@@ -430,7 +436,7 @@
               'aria-label': `${cl.items.length} sessions you're not attending. Click for day view`,
               style: { top: yOf(cl.start) + 'px' },
             }, `${cl.items.length} other sessions`);
-            ui.hoverCard(chip, () => clusterCard(cl, col, hid));
+            ui.hoverCard(chip, () => clusterCard(cl, col, hid, key));
             chip.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
             area.append(chip);
           }
