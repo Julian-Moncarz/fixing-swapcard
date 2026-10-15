@@ -318,12 +318,9 @@
     });
   };
 
-  // A busy time: hover shows every session as a mini timeline (full titles, length bars).
+  // A busy time: hover lists every session with its full title and time.
   const clusterCard = (cl, col, hid) => {
-    const span = cl.end - cl.start;
     const rows = cl.items.slice().sort((a, b) => a.start - b.start || a.end - b.end).map((s) => {
-      const left = ((s.start - cl.start) / span) * 100;
-      const width = Math.max(4, ((s.end - s.start) / span) * 100);
       const hiddenNow = isHidden(s, hid);
       const x = h('button', { type: 'button', class: 'cc-cl-btn', title: hiddenNow ? 'Unhide' : 'Not for me', 'aria-label': (hiddenNow ? 'Unhide ' : 'Hide ') + s.title }, hiddenNow ? '↺' : '✕');
       x.addEventListener('click', (e) => { e.stopPropagation(); hiddenNow ? unhideSession(s) : hideSession(s); });
@@ -338,7 +335,6 @@
       const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
         h('div', { class: 'cc-cl-main' },
           h('div', { class: 'cc-cl-title' }, s.title),
-          h('div', { class: 'cc-cl-track' }, h('div', { class: 'cc-cl-bar', style: { left: left + '%', width: width + '%' } })),
           h('div', { class: 'cc-cl-meta' }, [ui.range(s.start, s.end), clashOf(s) ? 'clashes with a meeting' : null].filter(Boolean).join(' · '))),
         h('div', { class: 'cc-cl-actions' }, add, x));
       row.addEventListener('click', () => { ui.hideHoverCard(); CC.drawer.openSession(s.id); });
