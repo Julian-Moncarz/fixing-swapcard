@@ -47,9 +47,9 @@ See [CATALOG.md](CATALOG.md) for the full map of Swapcard's screens, components 
 | `src/feedback.js` | Feedback button and screenshot markup |
 | `src/boot.js` | Startup, page classes, cruft removal |
 
-## Feedback form
+## Feedback
 
-`FEEDBACK_FORM_URL` in `src/feedback.js` is empty until a Tally form exists. The form should accept URL-prefilled hidden fields `comment`, `page`, `version`, `screenshot`, and have a file-upload field (the extension copies the marked-up screenshot to the clipboard so people can paste it in).
+The "Give feedback on this UI" button opens a pre-filled GitHub issue on this repo (comment, page and version; a marked-up screenshot is copied to the clipboard to paste in). It also links here for anyone who would rather send a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Development
 

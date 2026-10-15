@@ -5,8 +5,8 @@
   if (!CC || CC.isEmbed || CC.feedback) return;
   const { h, ui } = CC;
 
-  // Tally form that receives feedback. Fields are prefilled through URL params (see README).
-  const FEEDBACK_FORM_URL = '';
+  // Feedback becomes a pre-filled GitHub issue; changes can be sent as a pull request.
+  const REPO_URL = 'https://github.com/Julian-Moncarz/fixing-swapcard';
 
   let modal, shot = null; // shot: { canvas, ops: [] }
 
@@ -124,7 +124,7 @@
         addShot.textContent = '📸 Retake screenshot';
       },
     });
-    const send = ui.button('Send feedback', {
+    const send = ui.button('Send via GitHub', {
       variant: 'primary',
       onClick: async () => {
         const comment = text.value.trim();
@@ -134,18 +134,21 @@
           const blob = await new Promise((r) => shot.canvas.toBlob(r, 'image/png'));
           copied = await copyImage(blob);
         }
-        if (!FEEDBACK_FORM_URL) {
-          const ok = await copyText(comment);
-          ui.toast('The feedback form isn’t set up yet.' + (ok ? ' Your comment was copied to the clipboard.' : ''), 'error', 7000);
-          return;
-        }
-        const u = new URL(FEEDBACK_FORM_URL);
-        u.searchParams.set('comment', comment);
-        u.searchParams.set('page', CC.route().page || '');
-        u.searchParams.set('version', CC.version);
-        u.searchParams.set('screenshot', shot ? 'pasted' : 'none');
+        const firstLine = (comment.split('\n')[0] || 'Screenshot').slice(0, 70);
+        const body = [
+          comment || '_(no comment, see screenshot)_',
+          '',
+          shot ? (copied ? '**Screenshot:** paste it here (it is on your clipboard: ⌘V / Ctrl+V)' : '**Screenshot:** drag the image in here') : '',
+          '',
+          '---',
+          `Page: \`${CC.route().page || 'unknown'}\` · Calmer Card ${CC.version}`,
+        ].filter((l, i, a) => l || a[i - 1]).join('\n');
+        const u = new URL(REPO_URL + '/issues/new');
+        u.searchParams.set('title', 'UI feedback: ' + firstLine);
+        u.searchParams.set('body', body);
+        u.searchParams.set('labels', 'feedback');
         window.open(u.toString(), '_blank', 'noopener');
-        ui.toast(shot && copied ? 'Form opened. Paste the screenshot (⌘V) into the upload field.' : 'Form opened in a new tab.', 'success', 7000);
+        ui.toast(shot && copied ? 'GitHub opened. Paste the screenshot (⌘V) into the issue, then submit.' : 'GitHub opened in a new tab. Submit the issue there.', 'success', 8000);
         text.value = ''; shot = null; shotArea.replaceChildren(); addShot.textContent = '📸 Add screenshot';
         close();
       },
@@ -155,8 +158,12 @@
     modal = h('div', { class: 'cc-fb-modal', role: 'dialog', 'aria-label': 'Give feedback on this UI', hidden: true },
       h('div', { class: 'cc-fb-card' },
         h('div', { class: 'cc-drawer-head' }, h('div', { class: 'cc-drawer-title' }, 'How should this UI change?'), closeBtn),
+        h('div', { class: 'cc-fb-pr' },
+          'Want to make the change yourself? ',
+          h('a', { href: REPO_URL, target: '_blank', rel: 'noopener noreferrer' }, 'Make a pull request ↗'),
+          ' (the code is open source).'),
         text, shotArea,
-        h('div', { class: 'cc-fb-note cc-muted' }, 'Only what you type (and the screenshot, if you attach one) is shared, plus which page you were on.'),
+        h('div', { class: 'cc-fb-note cc-muted' }, 'Send opens a pre-filled GitHub issue (free account needed). Only what you type, the screenshot if you paste it, and the page name are shared.'),
         h('div', { class: 'cc-row cc-row-end' }, addShot, send)));
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });

@@ -487,6 +487,8 @@ html.cc-drawer-open .cc-fb-button { display: none; }
 }
 .cc-fb-text:focus { outline: 2px solid var(--cc-focus); border-color: transparent; }
 .cc-fb-note { font-size: 12px; line-height: 1.4; }
+.cc-fb-pr { font-size: 13px; padding: 10px 12px; border-radius: var(--cc-radius-md); background: var(--cc-tertiary-container); color: var(--cc-text); }
+.cc-fb-pr a { color: var(--cc-focus); font-weight: 600; }
 .cc-fb-editor { display: flex; flex-direction: column; gap: 8px; }
 .cc-fb-canvas { width: 100%; height: auto; border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md); cursor: crosshair; touch-action: none; }
 .cc-fb-tools .cc-btn { padding: 6px 10px; }

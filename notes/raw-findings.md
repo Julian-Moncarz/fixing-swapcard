@@ -11,7 +11,7 @@
 - Font: "Work Sans", Arial, Helvetica, sans-serif.
 
 ## IDs (EAG NYC 2026)
-- eventId RXZlbnRfNDUyNzE2NQ== ; attendee view RXZlbnRWaWV3XzE3NzIxMzg= ; agenda view RXZlbnRWaWV3XzE3NzIxMzY=
+- eventId `<eventId>`; attendee view `<viewId>`; agenda view `<viewId>`
 - Day aggregation ids = base64 {"data":{"range":[startUnix,endUnix]}}; from EventPlanningListViewNavigationQuery.
 
 ## Operations observed (name, hash prefix, vars)
@@ -45,4 +45,4 @@
 - Bell panel: Connection requests (Accept/Decline inline) + Activities (meeting accepted, new contact...) list.
 - Messages page: 3 columns (thread list, conversation, person summary w/ "Open profile").
 - Person page: full page; Meet button opens 4-step modal (Participants, Date & time chips of MUTUAL slots, Location, Description, Send). "See more slots" = day columns of chips. Right column: embedded chat "Talk to X", lead qualification, context.
-- EAG Matcher is external (matcher.eaglobal.org), blocked by user's Cold Turkey.
+- EAG Matcher is external (matcher.eaglobal.org); not explored.
