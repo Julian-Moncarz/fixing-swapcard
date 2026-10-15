@@ -380,6 +380,26 @@ html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-
 .cc-ib-card-title { font-size: 16px; font-weight: 600; }
 .cc-ib-card-when { font-size: 14px; }
 .cc-ib-card-free { font-size: 13px; font-weight: 500; }
+/* Your day around the proposed time, inside the request card. */
+.cc-ib-dayslot:empty { display: none; }
+.cc-ib-dayhead { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 600; color: var(--cc-text-muted); text-transform: uppercase; letter-spacing: .04em; }
+.cc-ib-daylink { border: 0; background: none; padding: 0; cursor: pointer; font: 500 12px var(--cc-font); color: var(--cc-focus); text-transform: none; letter-spacing: 0; }
+.cc-ib-daylink:hover { text-decoration: underline; }
+.cc-ib-day { border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md); margin-top: 6px; overflow: hidden; }
+.cc-ib-day-whole { max-height: 420px; overflow-y: auto; }
+.cc-ib-day .cc-grid-meeting, .cc-ib-day .cc-grid-session { right: 6px; }
+.cc-grid-item-place { display: block; font-weight: 400; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-p-meeting { font-size: 13px; font-weight: 600; color: var(--cc-success); cursor: default; border-bottom: 1px dotted currentColor; align-self: flex-start; }
+.cc-p-meeting-pending { color: var(--cc-warning); }
+.cc-hovercard:has(.cc-daywin) { width: 440px; }
+.cc-grid-focus {
+  right: 6px; z-index: 2; background: var(--cc-success-container); color: var(--cc-success);
+  border: 2px solid var(--cc-success); font-weight: 600;
+}
+.cc-grid-request {
+  right: 6px; z-index: 2; background: var(--cc-warning-container); color: var(--cc-warning);
+  border: 2px dashed var(--cc-warning); font-weight: 600;
+}
 
 /* ---------- booking calendar (inside Swapcard's Meet modal) ---------- */
 .cc-book { font-family: var(--cc-font); margin: 4px 0 12px; display: flex; flex-direction: column; gap: 8px; }

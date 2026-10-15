@@ -112,19 +112,52 @@
   };
   ui.hideHoverCard = () => { if (card) card.style.display = 'none'; };
 
+  // ---------- your day around one item (a proposed or booked meeting) ----------
+  // focus: { start, end, title, place, id? }, kind: 'request' (dashed, proposed) or 'focus' (booked).
+  // Shows ±90 minutes with a "Whole day" toggle. Returns the element.
+  ui.dayAround = (focus, agenda, { kind = 'request', label = null } = {}) => {
+    const wrap = h('div', { class: 'cc-daywin' });
+    const key = ui.dayKey(focus.start);
+    const items = agenda
+      .filter((a) => a.id !== focus.id && ui.dayKey(a.start) === key)
+      .concat([{ kind, start: focus.start, end: focus.end, title: focus.title, place: focus.place }]);
+    const startMin = ui.minutes(focus.start);
+    const endMin = startMin + (focus.end - focus.start) / 60000;
+    const near = { from: Math.max(0, Math.floor((startMin - 90) / 30) * 30), to: Math.min(1440, Math.ceil((endMin + 90) / 30) * 30) };
+    let whole = false;
+    const draw = () => {
+      const grid = ui.dayGrid({ days: [{ key, label: '' }], items, slots: [], onPick: () => {}, pxPerMin: 1.3, range: whole ? null : near });
+      const toggle = h('button', { type: 'button', class: 'cc-ib-daylink' }, whole ? 'Just around this time ▴' : 'Whole day ▾');
+      toggle.addEventListener('click', (e) => { e.stopPropagation(); whole = !whole; draw(); });
+      CC.fill(wrap,
+        h('div', { class: 'cc-ib-dayhead' }, h('span', null, label || `Your ${ui.day(focus.start)}`), toggle),
+        h('div', { class: 'cc-ib-day' + (whole ? ' cc-ib-day-whole' : '') }, grid));
+      if (whole) {
+        const sc = wrap.querySelector('.cc-ib-day');
+        const it = wrap.querySelector('.cc-grid-' + kind);
+        if (sc && it) sc.scrollTop = Math.max(0, it.offsetTop - 80);
+      }
+    };
+    draw();
+    wrap.redraw = draw;
+    return wrap;
+  };
+
   // ---------- day grid (booking calendar) ----------
   // items: [{start, end, title, kind: 'meeting'|'session'}], slots: [{id, start, end}]
-  ui.dayGrid = ({ days, items, slots, selectedSlotId, onPick, pxPerMin = 1.4 }) => {
+  // range: optional { from, to } in minutes since midnight (otherwise fitted to the content).
+  ui.dayGrid = ({ days, items, slots, selectedSlotId, onPick, pxPerMin = 1.4, range = null }) => {
     const byDay = (arr, key) => arr.filter((x) => ui.dayKey(x.start) === key);
     const all = items.concat(slots);
     const mins = all.map((x) => ui.minutes(x.start));
     const maxs = all.map((x) => ui.minutes(x.end) || 1440);
-    let from = Math.max(0, Math.floor((Math.min(...mins, 9 * 60) - 30) / 60) * 60);
-    let to = Math.min(1440, Math.ceil((Math.max(...maxs, 18 * 60) + 30) / 60) * 60);
+    let from = range ? range.from : Math.max(0, Math.floor((Math.min(...mins, 9 * 60) - 30) / 60) * 60);
+    let to = range ? range.to : Math.min(1440, Math.ceil((Math.max(...maxs, 18 * 60) + 30) / 60) * 60);
     const height = (to - from) * pxPerMin;
 
     const axis = h('div', { class: 'cc-grid-axis', style: { height: height + 'px' } });
-    for (let m = from; m < to; m += 60) {
+    const firstHour = Math.ceil(from / 60) * 60;
+    for (let m = firstHour; m < to; m += 60) {
       const d = new Date(2000, 0, 1, m / 60);
       axis.append(h('div', { class: 'cc-grid-hour', style: { top: (m - from) * pxPerMin + 'px' } },
         new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).format(d)));
@@ -132,18 +165,44 @@
 
     const cols = days.map((day) => {
       const col = h('div', { class: 'cc-grid-col', style: { height: height + 'px' } });
-      for (let m = from; m < to; m += 60) col.append(h('div', { class: 'cc-grid-line', style: { top: (m - from) * pxPerMin + 'px' } }));
+      for (let m = firstHour; m < to; m += 60) col.append(h('div', { class: 'cc-grid-line', style: { top: (m - from) * pxPerMin + 'px' } }));
       const place = (el, x) => {
-        const top = (ui.minutes(x.start) - from) * pxPerMin;
-        const hgt = Math.max(14, ((x.end - x.start) / 60000) * pxPerMin - 2);
+        // Clip to the visible range.
+        const a = Math.max(from, ui.minutes(x.start));
+        const b = Math.min(to, ui.minutes(x.start) + (x.end - x.start) / 60000);
+        const top = (a - from) * pxPerMin;
+        const hgt = Math.max(14, (b - a) * pxPerMin - 2);
         el.style.top = top + 'px';
         el.style.height = hgt + 'px';
         return el;
       };
-      for (const it of byDay(items, day.key)) {
+      const inRange = (x) => ui.minutes(x.start) < to && ui.minutes(x.start) + (x.end - x.start) / 60000 > from;
+      // Overlapping items sit side by side (lanes), within the items' share of the column.
+      const dayList = byDay(items, day.key).filter(inRange).sort((a, b) => a.start - b.start || b.end - a.end);
+      const regionPct = slots.length ? 60 : 100;
+      const laneOf = new Map(), lanesOf = new Map();
+      for (let i = 0; i < dayList.length;) {
+        let end = dayList[i].end, j = i;
+        while (j + 1 < dayList.length && dayList[j + 1].start < end) { j++; if (dayList[j].end > end) end = dayList[j].end; }
+        const group = dayList.slice(i, j + 1), ends = [];
+        for (const it of group) {
+          let l = ends.findIndex((e) => e <= it.start);
+          if (l === -1) { l = ends.length; ends.push(0); }
+          ends[l] = it.end; laneOf.set(it, l);
+        }
+        for (const it of group) lanesOf.set(it, ends.length);
+        i = j + 1;
+      }
+      for (const it of dayList) {
         const pending = it.kind === 'meeting' && it.status === 'PENDING';
+        const hgt = ((x) => (Math.min(to, ui.minutes(x.start) + (x.end - x.start) / 60000) - Math.max(from, ui.minutes(x.start))) * pxPerMin)(it);
         col.append(place(h('div', { class: 'cc-grid-item cc-grid-' + it.kind + (pending ? ' cc-grid-pending' : ''), title: `${it.title}${pending ? ' (pending)' : ''}\n${ui.range(it.start, it.end)}${it.place ? '\n' + it.place : ''}` },
-          h('span', { class: 'cc-grid-item-title' }, it.title)), it));
+          h('span', { class: 'cc-grid-item-title' }, it.title),
+          it.place && hgt >= 30 ? h('span', { class: 'cc-grid-item-place' }, it.place) : null), it));
+        const el = col.lastElementChild, n = lanesOf.get(it) || 1, l = laneOf.get(it) || 0;
+        el.style.left = `calc(${(l * regionPct) / n}% + 4px)`;
+        el.style.width = `calc(${regionPct / n}% - 6px)`;
+        el.style.right = 'auto';
       }
       const dayItems = byDay(items, day.key);
       for (const s of byDay(slots, day.key)) {

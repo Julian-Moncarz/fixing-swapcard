@@ -193,6 +193,17 @@
 
   // ---------- middle: the request card, pinned above Swapcard's conversation ----------
   let requestOnly = null;
+  // Your day around a proposed meeting: neighbours, rooms, and the proposed slot in place.
+  // "Whole day" widens it; "Suggest another time" swaps it for the mutual-free picker.
+  const dayWindow = (e, slot) => {
+    const m = e.request.meeting;
+    const draw = () => slot.replaceChildren(ui.dayAround(
+      { id: m.id, start: m.start, end: m.end, title: `${e.name.split(' ')[0]} (proposed)`, place: m.place },
+      state.agenda, { kind: 'request' }));
+    draw();
+    return draw;
+  };
+
   // inChat: the conversation is shown underneath, so skip the message (it's in the chat already).
   const requestCard = (e, { inChat = false } = {}) => {
     const r = e.request;
@@ -208,11 +219,22 @@
         `${ui.day(r.meeting.start)} · ${ui.range(r.meeting.start, r.meeting.end)}${r.meeting.place ? ' · ' + r.meeting.place : ''}`),
       f && h('div', { class: 'cc-ib-card-free ' + (f.free ? 'cc-ib-free' : 'cc-ib-clash') }, f.text),
       r.message && !inChat && h('div', { class: 'cc-request-msg' }, r.message));
+    // The day window (meeting requests you received).
+    const daySlot = h('div', { class: 'cc-ib-dayslot' });
+    let redrawDay = null;
+    if (r.incoming && r.meeting) { card.append(daySlot); redrawDay = dayWindow(e, daySlot); }
     if (r.incoming) {
+      const suggest = r.isMeeting && e.personId ? ui.button('Suggest another time', {
+        variant: 'ghost',
+        onClick: async () => {
+          // Same place, now the mutual-free picker; Cancel brings the day window back.
+          daySlot.replaceChildren(CC.booking.panel({ id: e.personId, firstName: e.name.split(' ')[0] }, () => { if (redrawDay) redrawDay(); }));
+        },
+      }) : null;
       const row = h('div', { class: 'cc-row' },
         ui.button('Accept', { variant: 'primary', onClick: async () => { await CC.data.acceptRequest(r.id); done('Accepted ✓'); ui.toast('Accepted', 'success'); refresh(true); } }),
         ui.button('Decline', { onClick: async () => { await CC.data.declineRequest(r.id); done('Declined'); refresh(true); } }),
-        r.isMeeting && e.personId ? ui.button('Suggest another time', { variant: 'ghost', onClick: async () => { CC.drawer.openPerson(e.personId); } }) : null);
+        suggest);
       card.append(row);
     }
     return card;
@@ -332,7 +354,8 @@
   });
   const scrollToSelected = () => document.querySelector('.cc-ib-row.cc-selected')?.scrollIntoView({ block: 'nearest' });
 
-  CC.inbox = { refreshCounts, refresh, renderSideProfile };
+  // requestCard is exposed for previewing the card with sample data while developing.
+  CC.inbox = { refreshCounts, refresh, renderSideProfile, requestCard, state: () => state };
   CC.on('dom', () => { injectNav(); retireBell(); mount(); });
   CC.on('route', () => {
     refreshCounts();

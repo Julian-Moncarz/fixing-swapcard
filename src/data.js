@@ -241,6 +241,7 @@
               start: new Date(a.meeting.beginsAt || a.starts),
               end: new Date(a.meeting.endsAt || a.ends),
               title: others.length ? 'Meeting with ' + others.map((p) => p.person.firstName).join(', ') : 'Meeting',
+              personIds: others.map((p) => p.person.id),
               place: a.meeting.place && a.meeting.place.name,
             };
           }

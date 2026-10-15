@@ -140,6 +140,16 @@
     const links = (p.socialNetworks || []).map(linkFor).filter(Boolean);
     if (p.websiteUrl && /^https?:/i.test(p.websiteUrl)) links.push(h('a', { class: 'cc-chip cc-chip-link', href: p.websiteUrl, target: '_blank', rel: 'noopener noreferrer' }, 'Website ↗'));
     const status = statusLine(p, req);
+    // Meetings you already have with them: "Meeting · Sat, Oct 17 5:00 PM", hover for your day around it.
+    const meetingLines = (opts.agenda || [])
+      .filter((a) => a.kind === 'meeting' && (a.personIds || []).includes(p.id) && !/DECLINED|CANCELED/.test(a.status || ''))
+      .sort((a, b) => a.start - b.start)
+      .map((m) => {
+        const line = h('div', { class: 'cc-p-meeting' + (m.status === 'PENDING' ? ' cc-p-meeting-pending' : ''), tabindex: '0' },
+          `Meeting · ${ui.day(m.start)} ${ui.time(m.start)}${m.place ? ' · ' + m.place : ''}${m.status === 'PENDING' ? ' (pending)' : ''}`);
+        ui.hoverCard(line, () => ui.dayAround(m, opts.agenda, { kind: 'focus' }));
+        return line;
+      });
     const actions = h('div', { class: 'cc-row cc-p-actions' });
     const panelSlot = h('div', { class: 'cc-p-slot' });
     const isSelf = p.userInfo && p.userInfo.isSelf;
@@ -166,6 +176,7 @@
           h('div', { class: 'cc-p-name' }, name),
           (p.jobTitle || p.organization) && h('div', { class: 'cc-p-sub' }, [p.jobTitle, p.organization].filter(Boolean).join(' · ')),
           status && h('div', { class: 'cc-p-status' }, status),
+          meetingLines,
           links.length > 0 && h('div', { class: 'cc-chips cc-p-links' }, links))),
       actions.children.length ? actions : null,
       panelSlot,
@@ -254,9 +265,9 @@
         if (token !== openToken) return;
         renderSession(s);
       } else {
-        const [p, reqs] = await Promise.all([CC.data.person(view.id), view.request ? Promise.resolve(null) : CC.data.requests().catch(() => [])]);
+        const [p, reqs, agenda] = await Promise.all([CC.data.person(view.id), view.request ? Promise.resolve(null) : CC.data.requests().catch(() => []), CC.data.agenda().catch(() => [])]);
         if (token !== openToken) return;
-        renderProfile(p, view.request || (reqs || []).find((r) => r.personId === view.id) || null);
+        renderProfile(p, view.request || (reqs || []).find((r) => r.personId === view.id) || null, body, { agenda });
       }
       body.scrollTop = 0;
     } catch (e) {
@@ -317,9 +328,9 @@
     el.dataset.ccPerson = personId;
     CC.fill(el, h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' })));
     try {
-      const [p, reqs] = await Promise.all([CC.data.person(personId), CC.data.requests().catch(() => [])]);
+      const [p, reqs, agenda] = await Promise.all([CC.data.person(personId), CC.data.requests().catch(() => []), CC.data.agenda().catch(() => [])]);
       if (el.dataset.ccPerson !== personId) return;
-      renderProfile(p, withRequest ? (reqs || []).find((r) => r.personId === personId) || null : null, el, { hideBook });
+      renderProfile(p, withRequest ? (reqs || []).find((r) => r.personId === personId) || null : null, el, { hideBook, agenda });
     } catch (e) {
       CC.warn('profile', e);
       CC.fill(el, h('div', { class: 'cc-empty' }, 'Couldn’t load this profile.'));
