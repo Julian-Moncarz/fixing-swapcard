@@ -74,7 +74,15 @@
       if (!r.width || r.width > 500 || r.top > 50 || r.left > innerWidth / 2) continue;
       if (e.children.length === 0 || e.tagName === 'svg') right = Math.max(right, r.right);
     }
-    if (right > 0) document.documentElement.style.setProperty('--cc-nav-left', Math.round(right + 32) + 'px');
+    if (!right) return;
+    const left = Math.round(right + 32);
+    document.documentElement.style.setProperty('--cc-nav-left', left + 'px');
+    // Does the nav fit between the event name and the avatar? Its width is the span of its items.
+    const rects = navBox ? CC.$$('a[href], button', navBox).filter((a) => a.offsetParent !== null).map((a) => a.getBoundingClientRect()) : [];
+    const navWidth = rects.length ? Math.max(...rects.map((r) => r.right)) - Math.min(...rects.map((r) => r.left)) + 24 : Infinity;
+    const avatar = bar.querySelector(CC.sc('top-bar__DropDownWrapper'));
+    const limit = avatar ? avatar.getBoundingClientRect().left - 16 : innerWidth - 80;
+    document.documentElement.classList.toggle('cc-nav-inline', left + navWidth <= limit);
   };
   window.addEventListener('resize', placeNav);
 
