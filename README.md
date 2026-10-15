@@ -2,6 +2,8 @@
 
 A Chrome extension that makes Swapcard's attendee web app calmer to use. It works on any Swapcard event and reuses as much of Swapcard as possible: their calendar, Messages page, Meet modal, theme, and their own GraphQL client.
 
+Why: see [PAIN-POINTS.md](PAIN-POINTS.md) for the specific, step-by-step frustrations with stock Swapcard that this fixes.
+
 ## What it changes
 
 | Where | Change |
