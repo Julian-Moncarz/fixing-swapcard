@@ -211,7 +211,11 @@
       if (st.width !== b.dataset.ccWidth) b.dataset.ccOrigWidth = st.width || W + 'px';
       const l = fracOf(b.dataset.ccOrigLeft, W) || 0;
       const w = fracOf(b.dataset.ccOrigWidth, W) || 1;
-      const share = ownShare();
+      // Full width unless a grey session or chip sits beside it.
+      const top = parseFloat(b.style.top) || 0;
+      const bottom = top + (parseFloat(b.style.height) || b.offsetHeight);
+      const beside = (col.__ccGhostSpans || []).some(([t, bt]) => t < bottom && bt > top);
+      const share = beside ? ownShare() : 1;
       const nl = (l * share * 100).toFixed(2) + '%';
       const nw = `calc(${(w * share * 100).toFixed(2)}% - 6px)`;
       // Only write when something changed, or our own writes would re-trigger the observer forever.
@@ -368,6 +372,7 @@
       cols.forEach((c) => { c.querySelector(':scope > .cc-ghost-layer')?.remove(); c.querySelector(':scope > .cc-now-line')?.remove(); });
       lastSig = sig;
       document.documentElement.classList.toggle('cc-ghosts-on', show);
+      cols.forEach((c) => { c.__ccGhostSpans = []; });
       if (!show) return;
       const [sessions, agenda] = await Promise.all([CC.data.sessions(), CC.data.agenda().catch(() => [])]);
       sessionsCache = sessions;
@@ -431,7 +436,13 @@
           }
         }
         col.prepend(layer);
+        // Where grey sessions sit, so your own blocks elsewhere can use the full width.
+        col.__ccGhostSpans = CC.$$('.cc-ghost, .cc-ghost-chip', layer).map((g) => {
+          const t = parseFloat(g.style.top) || 0;
+          return [t, t + g.offsetHeight];
+        });
       });
+      cols.forEach((c) => { scaleBlocks(c); fitBlocks(c); });
       drawNowLine(cols, days, ppm);
     } catch (e) {
       CC.warn('calendar', e);

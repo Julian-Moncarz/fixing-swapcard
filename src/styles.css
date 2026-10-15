@@ -181,7 +181,7 @@ html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { f
 .cc-session-hide { margin-top: 2px; }
 .cc-session-hide .cc-btn { padding: 6px 10px; font-size: 12px; }
 /* ✕ to leave a session you're registered for; it replaces Swapcard's calendar icon on hover. */
-.cc-own-session { position: relative; }
+/* Swapcard's blocks are already absolutely positioned, so the ✕ anchors to them as is. */
 .cc-own-x {
   position: absolute; top: 4px; right: 4px; z-index: 3; width: 20px; height: 20px; padding: 0; border-radius: 50%;
   border: 0; background: #fff; color: #888; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer;
