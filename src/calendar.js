@@ -114,6 +114,21 @@
       b.dataset.ccWidth = st.width;
     }
   };
+  // Swapcard's blocks have a fixed height, so text that wraps gets cut mid-line. Drop the least
+  // important lines first (category, then location), then clamp the title, until it fits.
+  const fitBlocks = (col) => {
+    for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
+      const box = b.querySelector('[class*="item__Container-sc-"]');
+      if (!box) continue;
+      box.querySelectorAll('.cc-fit-hidden').forEach((e) => e.classList.remove('cc-fit-hidden'));
+      box.classList.remove('cc-fit-clamp');
+      const fits = () => box.scrollHeight <= box.clientHeight + 1;
+      if (fits()) continue;
+      const rows = [...box.querySelectorAll(':scope > [class*="item__InfoRow-sc-"]')];
+      for (let i = rows.length - 1; i >= 0 && !fits(); i--) rows[i].classList.add('cc-fit-hidden');
+      if (!fits()) box.classList.add('cc-fit-clamp');
+    }
+  };
   const unscaleBlocks = () => {
     for (const b of CC.$$(`${sc('timeline-block__BlockWrapper')}[data-cc-orig-left]`)) {
       b.style.left = b.dataset.ccOrigLeft;
@@ -128,7 +143,7 @@
     if (styleObs) styleObs.obs.disconnect();
     const obs = new MutationObserver(() => {
       if (!pref()) return;
-      CC.$$(sc('styles__ColumnContainer'), wrapper).forEach(scaleBlocks);
+      CC.$$(sc('styles__ColumnContainer'), wrapper).forEach((c) => { scaleBlocks(c); fitBlocks(c); });
     });
     obs.observe(wrapper, { attributes: true, attributeFilter: ['style'], subtree: true });
     styleObs = { obs, target: wrapper };
@@ -144,6 +159,7 @@
     watchStyles(wrapper);
     const show = pref();
     if (show) cols.forEach(scaleBlocks); else unscaleBlocks();
+    cols.forEach(fitBlocks);
     const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'));
     const sig = cols.length + ':' + show;
     if (!force && intact && sig === lastSig) return;
@@ -248,4 +264,9 @@
     if (CC.route().page !== 'my-schedule') document.documentElement.classList.remove('cc-ghosts-on');
   });
   CC.on('schedule-changed', () => setTimeout(() => render(true), 600));
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => CC.$$(sc('styles__ColumnContainer')).forEach(fitBlocks), 150);
+  });
 })();

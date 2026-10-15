@@ -114,6 +114,10 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 
 /* ---------- calendar ghosts ---------- */
 /* Your blocks take the left 58% of each day; sessions you're not attending get the right 42%. */
+.cc-fit-hidden { display: none !important; }
+.cc-fit-clamp [class*="item__Title-sc-"], .cc-fit-clamp [class*="item__Name-sc-"] {
+  display: -webkit-box !important; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; white-space: normal;
+}
 .cc-ghost-layer { position: absolute; top: 0; bottom: 0; left: 58%; right: 0; pointer-events: none; z-index: 0; }
 .cc-ghost-area { position: absolute; top: 0; bottom: 0; left: 0; }
 .cc-ghost-strip { width: 7px; padding: 0; border-style: solid; border-color: #d6d6d6; background: #eee; }
