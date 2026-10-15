@@ -9,6 +9,62 @@
   const pref = () => { try { return localStorage.getItem(PREF_KEY) !== '0'; } catch { return true; } };
   const setPref = (v) => { try { localStorage.setItem(PREF_KEY, v ? '1' : '0'); } catch {} };
 
+  const SHOW_HIDDEN_KEY = 'cc:showHidden';
+  const showHiddenPref = () => { try { return localStorage.getItem(SHOW_HIDDEN_KEY) === '1'; } catch { return false; } };
+  const setShowHidden = (v) => { try { localStorage.setItem(SHOW_HIDDEN_KEY, v ? '1' : '0'); } catch {} };
+
+  // ---------- sessions you've said "not for me" to (kept in this browser, per event) ----------
+  // ids: hidden one by one. families: hidden in bulk ("office hours"). shown: un-hidden exceptions
+  // to a hidden family.
+  const hiddenKey = () => 'cc:hidden:' + CC.route().slug;
+  const loadHidden = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(hiddenKey()) || '{}');
+      return { ids: v.ids || [], families: v.families || [], shown: v.shown || [] };
+    } catch { return { ids: [], families: [], shown: [] }; }
+  };
+  const saveHidden = (v) => { try { localStorage.setItem(hiddenKey(), JSON.stringify(v)); } catch {} };
+  // "Office hours: Jane Doe" -> "Office hours". Families are what people hide in bulk.
+  const familyOf = (s) => {
+    const m = s.title.match(/^([^:]{3,40}):\s/);
+    return m ? m[1].trim() : null;
+  };
+  const famKey = (f) => f.toLowerCase();
+  const isHidden = (s, hid = loadHidden()) => {
+    if (hid.shown.includes(s.id)) return false;
+    if (hid.ids.includes(s.id)) return true;
+    const f = familyOf(s);
+    return !!f && hid.families.includes(famKey(f));
+  };
+  const update = (fn, toastMsg) => {
+    const before = loadHidden();
+    const after = fn(JSON.parse(JSON.stringify(before)));
+    saveHidden(after);
+    ui.hideHoverCard();
+    render(true);
+    CC.emit('hidden-changed');
+    if (toastMsg) ui.toast(toastMsg, 'info', 6000, { label: 'Undo', fn: () => { saveHidden(before); render(true); CC.emit('hidden-changed'); } });
+  };
+  const hideSession = (s) => update((v) => {
+    v.shown = v.shown.filter((x) => x !== s.id);
+    if (!v.ids.includes(s.id)) v.ids.push(s.id);
+    return v;
+  }, `Hidden “${s.title}”`);
+  const hideFamily = (fam, count) => update((v) => {
+    if (!v.families.includes(famKey(fam))) v.families.push(famKey(fam));
+    return v;
+  }, `Hidden ${count} “${fam}” sessions`);
+  const unhideSession = (s) => update((v) => {
+    v.ids = v.ids.filter((x) => x !== s.id);
+    const f = familyOf(s);
+    if (f && v.families.includes(famKey(f)) && !v.shown.includes(s.id)) v.shown.push(s.id);
+    return v;
+  }, `Showing “${s.title}” again`);
+  const unhideFamily = (famK) => update((v) => {
+    v.families = v.families.filter((x) => x !== famK);
+    return v;
+  }, null);
+
   const isCalendarPage = () => {
     const r = CC.route();
     return r.page === 'my-schedule' && !!document.querySelector(sc('styles__ColumnsWrapper'));
@@ -94,6 +150,10 @@
     return ends.length;
   };
 
+  // Your meetings, for spotting sessions that clash with them (refreshed on each render).
+  let myMeetings = [];
+  const clashOf = (s) => myMeetings.find((m) => m.start < s.end && m.end > s.start) || null;
+
   const sessionCard = (s) => {
     const seats = s.maxSeats ? (s.remainingSeats > 0 ? `${s.remainingSeats} seats left` : 'No seats left') : null;
     const addBtn = ui.button('Add to schedule', {
@@ -106,7 +166,16 @@
     });
     if (s.maxSeats && s.remainingSeats <= 0) { addBtn.disabled = true; addBtn.textContent = 'Full'; }
     const desc = CC.textFromHtml(s.html);
+    const clash = clashOf(s);
+    const hidden = isHidden(s);
+    const fam = familyOf(s);
+    const famCount = fam ? sessionsCache.filter((x) => familyOf(x) && famKey(familyOf(x)) === famKey(fam) && !x.attending).length : 0;
+    const hideBtns = hidden
+      ? [ui.button('Unhide', { variant: 'ghost', onClick: async () => unhideSession(s) })]
+      : [ui.button('Not for me', { variant: 'ghost', title: 'Hide this session from your calendar', onClick: async () => hideSession(s) }),
+        fam && famCount > 1 ? ui.button(`Hide all “${fam}” (${famCount})`, { variant: 'ghost', onClick: async () => hideFamily(fam, famCount) }) : null];
     return h('div', { class: 'cc-session-card' },
+      clash && h('div', { class: 'cc-session-clash' }, `Clashes with your ${clash.title.replace(/^Meeting/, 'meeting')} (${ui.range(clash.start, clash.end)})`),
       h('div', { class: 'cc-session-title' }, s.title),
       h('div', { class: 'cc-session-meta' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
       s.place && h('div', { class: 'cc-session-meta' }, '📍 ' + s.place),
@@ -116,8 +185,10 @@
       desc && h('div', { class: 'cc-session-desc' }, desc.length > 420 ? desc.slice(0, 420) + '…' : desc),
       h('div', { class: 'cc-row' },
         s.canBookmark || s.maxSeats ? addBtn : null,
-        h('a', { class: 'cc-btn cc-btn-ghost', href: `/event/${CC.route().slug}/planning/${s.id}` }, 'Details')));
+        h('a', { class: 'cc-btn cc-btn-ghost', href: `/event/${CC.route().slug}/planning/${s.id}` }, 'Details')),
+      h('div', { class: 'cc-row cc-session-hide' }, hideBtns));
   };
+  let sessionsCache = [];
 
   // Squeeze Swapcard's own blocks into the left part of each day, keeping their side-by-side
   // layout. They position blocks with inline px/% left and width; we rescale those, and redo it
@@ -201,11 +272,17 @@
     if (!force && intact && sig === lastSig) return;
     rendering = true;
     try {
-      cols.forEach((c) => c.querySelector(':scope > .cc-ghost-layer')?.remove());
+      cols.forEach((c) => { c.querySelector(':scope > .cc-ghost-layer')?.remove(); c.querySelector(':scope > .cc-now-line')?.remove(); });
       lastSig = sig;
       document.documentElement.classList.toggle('cc-ghosts-on', show);
       if (!show) return;
-      const sessions = await CC.data.sessions();
+      const [sessions, agenda] = await Promise.all([CC.data.sessions(), CC.data.agenda().catch(() => [])]);
+      sessionsCache = sessions;
+      myMeetings = agenda.filter((a) => a.kind === 'meeting' && a.status !== 'DECLINED' && a.status !== 'CANCELED');
+      const hid = loadHidden();
+      const showHidden = showHiddenPref();
+      const now = CC.now();
+      updateControls(sessions, hid);
       const days = columnDays(sessions);
       renderDayInfo(sessions, days);
       const ppm = pxPerMin(wrapper);
@@ -213,7 +290,16 @@
         const key = days[i];
         if (!key) return;
         const layer = h('div', { class: 'cc-ghost-layer', 'aria-label': 'Sessions you are not attending' });
-        const todays = sessions.filter((s) => !s.attending && ui.dayKey(s.start) === key);
+        // Not attending, not over yet, and not hidden (unless you're looking at hidden ones).
+        const todays = sessions.filter((s) => !s.attending && ui.dayKey(s.start) === key && s.end > now && (showHidden || !isHidden(s, hid)));
+        const classesFor = (s, base) => base + (isHidden(s, hid) ? ' cc-ghost-hidden' : '') + (clashOf(s) ? ' cc-ghost-clash' : '');
+        // ✕ to hide (or ↺ to unhide) without opening anything.
+        const xBtn = (s) => {
+          const hiddenNow = isHidden(s, hid);
+          const b = h('button', { type: 'button', class: 'cc-ghost-x', title: hiddenNow ? 'Unhide' : 'Not for me', 'aria-label': (hiddenNow ? 'Unhide ' : 'Hide ') + s.title }, hiddenNow ? '↺' : '✕');
+          b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); hiddenNow ? unhideSession(s) : hideSession(s); });
+          return b;
+        };
         const yOf = (d) => ui.minutes(d) * ppm;
         const hOf = (a, b) => Math.max(18, ((b - a) / 60000) * ppm - 4);
         const label = (s) => `${s.title}, ${ui.range(s.start, s.end)}, not attending`;
@@ -228,11 +314,12 @@
             for (const s of cl.items) {
               const height = hOf(s.start, s.end);
               const el = h('div', {
-                class: 'cc-ghost', tabindex: '0', role: 'button', 'aria-label': label(s),
+                class: classesFor(s, 'cc-ghost'), tabindex: '0', role: 'button', 'aria-label': label(s),
                 style: { top: yOf(s.start) + 'px', height: height + 'px', left: `calc(${(s._lane * 100) / n}% + 1px)`, width: `calc(${100 / n}% - 3px)` },
               },
               h('span', { class: 'cc-ghost-title' }, s.title),
-              height > 38 ? h('span', { class: 'cc-ghost-meta' }, s.place || '') : null);
+              height > 38 ? h('span', { class: 'cc-ghost-meta' }, s.place || '') : null,
+              xBtn(s));
               ui.hoverCard(el, () => sessionCard(s));
               openOnClick(el, s);
               area.append(el);
@@ -243,9 +330,10 @@
               style: { top: yOf(cl.start) + 'px', height: hOf(cl.start, cl.end) + 'px', left: '1px', width: 'calc(100% - 3px)' },
             }, h('span', { class: 'cc-ghost-count' }, `${cl.items.length} sessions`));
             for (const s of cl.items.sort((a, b) => a.start - b.start)) {
-              const row = h('div', { class: 'cc-ghost-row', tabindex: '0', role: 'button', 'aria-label': label(s) },
+              const row = h('div', { class: classesFor(s, 'cc-ghost-row'), tabindex: '0', role: 'button', 'aria-label': label(s) },
                 h('span', { class: 'cc-ghost-time' }, ui.time(s.start).replace(/\s?(AM|PM)$/i, '')),
-                h('span', { class: 'cc-ghost-rowtitle' }, s.title));
+                h('span', { class: 'cc-ghost-rowtitle' }, s.title),
+                xBtn(s));
               ui.hoverCard(row, () => sessionCard(s));
               openOnClick(row, s);
               group.append(row);
@@ -255,11 +343,50 @@
         }
         col.prepend(layer);
       });
+      drawNowLine(cols, days, ppm);
     } catch (e) {
       CC.warn('calendar', e);
     } finally {
       rendering = false;
     }
+  };
+
+  // A "now" line across today's column.
+  const drawNowLine = (cols, days, ppm) => {
+    const now = CC.now();
+    cols.forEach((col, i) => {
+      col.querySelector(':scope > .cc-now-line')?.remove();
+      if (days[i] !== ui.dayKey(now)) return;
+      col.append(h('div', { class: 'cc-now-line', style: { top: ui.minutes(now) * ppm + 'px' }, 'aria-hidden': 'true' }));
+    });
+  };
+  setInterval(() => {
+    if (!isCalendarPage() || document.hidden) return;
+    const wrapper = document.querySelector(sc('styles__ColumnsWrapper'));
+    if (!wrapper || !sessionsCache.length) return;
+    // Re-render so sessions that just ended drop off and the line moves.
+    render(true);
+  }, 5 * 60 * 1000);
+
+  // Sidebar controls: "Show hidden (n)" and the families you've hidden, each with Unhide.
+  const updateControls = (sessions, hid) => {
+    const box = document.querySelector('.cc-cal-controls');
+    if (!box) return;
+    const count = sessions.filter((s) => !s.attending && isHidden(s, hid)).length;
+    const input = h('input', { type: 'checkbox' });
+    input.checked = showHiddenPref();
+    input.disabled = !count;
+    input.addEventListener('change', () => { setShowHidden(input.checked); render(true); });
+    const fams = hid.families.map((fk) => {
+      const sample = sessions.find((x) => familyOf(x) && famKey(familyOf(x)) === fk);
+      const label = sample ? familyOf(sample) : fk;
+      const b = h('button', { type: 'button', class: 'cc-chip cc-chip-btn', title: 'Unhide all' }, `${label} ✕`);
+      b.addEventListener('click', () => unhideFamily(fk));
+      return b;
+    });
+    CC.fill(box,
+      h('label', { class: 'cc-allsessions-toggle' + (count ? '' : ' cc-muted') }, input, ` Show hidden (${count})`),
+      fams.length > 0 && h('div', { class: 'cc-hidden-fams' }, h('span', { class: 'cc-small cc-muted' }, 'Hidden groups: '), fams));
   };
 
   // "Show all sessions" switch in Swapcard's own left sidebar, under Appearance.
@@ -271,7 +398,9 @@
     const input = h('input', { type: 'checkbox' });
     input.checked = pref();
     input.addEventListener('change', () => { setPref(input.checked); render(true); });
-    host.append(h('label', { class: 'cc-allsessions-toggle' }, input, ' Show sessions I’m not attending'));
+    host.append(
+      h('label', { class: 'cc-allsessions-toggle' }, input, ' Show sessions I’m not attending'),
+      h('div', { class: 'cc-cal-controls' }));
   };
 
   // Default My Schedule to the calendar appearance (once per visit).
@@ -285,7 +414,7 @@
     if (btn) { switched = true; btn.click(); }
   };
 
-  CC.calendar = { render, sessionCard };
+  CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf };
   CC.on('dom', () => { preferCalendar(); render(false); });
   CC.on('route', () => {
     switched = false; lastSig = '';

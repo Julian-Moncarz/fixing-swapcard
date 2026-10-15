@@ -34,6 +34,8 @@
     requestAnimationFrame(() => { domQueued = false; CC.emit('dom'); });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
+  // The current time. A function so tests can simulate a moment during the event.
+  CC.now = () => new Date();
   CC.sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   CC.waitFor = async (fn, { timeout = 15000, every = 100 } = {}) => {
     const t0 = Date.now();

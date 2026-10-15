@@ -96,6 +96,11 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
   background: var(--cc-primary); color: var(--cc-on-primary); box-shadow: var(--cc-shadow-lg);
   max-width: min(520px, 90vw); transition: opacity .3s, transform .3s;
 }
+.cc-toast { pointer-events: auto; display: flex; align-items: center; gap: 12px; }
+.cc-toast-action {
+  border: 0; background: transparent; color: inherit; font: 600 14px var(--cc-font); text-decoration: underline;
+  cursor: pointer; padding: 0;
+}
 .cc-toast-success { background: var(--cc-success); }
 .cc-toast-error { background: var(--cc-danger); }
 .cc-toast-out { opacity: 0; transform: translateY(8px); }
@@ -120,6 +125,36 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 }
 .cc-ghost-layer { position: absolute; top: 0; bottom: 0; left: 58%; right: 0; pointer-events: none; z-index: 0; }
 .cc-ghost-area { position: absolute; top: 0; bottom: 0; left: 0; }
+/* hiding sessions */
+.cc-ghost-x {
+  position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: 0;
+  background: #fff; color: #999; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer;
+  opacity: 0; box-shadow: 0 0 0 1px #ddd; padding: 0;
+}
+.cc-ghost:hover > .cc-ghost-x, .cc-ghost:focus-within > .cc-ghost-x { opacity: 1; }
+.cc-ghost-x:hover { background: var(--cc-danger-container); color: var(--cc-danger); box-shadow: 0 0 0 1px var(--cc-danger); }
+.cc-ghost-row { position: relative; padding-right: 20px; }
+.cc-ghost-row > .cc-ghost-x { top: -1px; right: 0; width: 16px; height: 16px; line-height: 16px; }
+.cc-ghost-row:hover > .cc-ghost-x, .cc-ghost-row:focus-within > .cc-ghost-x { opacity: 1; }
+.cc-ghost-hidden .cc-ghost-title, .cc-ghost-hidden .cc-ghost-rowtitle, .cc-ghost-row.cc-ghost-hidden .cc-ghost-rowtitle { text-decoration: line-through; }
+.cc-ghost.cc-ghost-hidden, .cc-ghost-row.cc-ghost-hidden { opacity: .5; }
+/* Clashes with one of your meetings: still there, but quieter. */
+.cc-ghost.cc-ghost-clash:not(:hover), .cc-ghost-row.cc-ghost-clash:not(:hover) { opacity: .45; }
+.cc-session-clash {
+  font-size: 12px; padding: 6px 8px; border-radius: var(--cc-radius-sm);
+  background: var(--cc-warning-container); color: var(--cc-warning);
+}
+.cc-session-hide { margin-top: 2px; }
+.cc-session-hide .cc-btn { padding: 6px 10px; font-size: 12px; }
+/* now line */
+.cc-now-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--cc-notification); z-index: 3; pointer-events: none; }
+.cc-now-line::before { content: ''; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--cc-notification); }
+.cc-cal-controls { margin-top: 6px; }
+.cc-cal-controls .cc-allsessions-toggle { margin-top: 4px; }
+.cc-hidden-fams { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; }
+.cc-chip-btn { border: 0; cursor: pointer; font-family: var(--cc-font); }
+.cc-chip-btn:hover { background: var(--cc-danger-container); }
+
 .cc-day-info {
   margin: 2px 8px 6px; font: 400 11.5px/1.35 var(--cc-font); color: var(--cc-text-muted); text-align: center;
 }

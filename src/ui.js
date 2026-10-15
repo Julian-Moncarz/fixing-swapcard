@@ -31,9 +31,15 @@
 
   // ---------- toast ----------
   let toastEl;
-  ui.toast = (msg, kind = 'info', ms = 3500) => {
+  // action: optional { label, fn } shown as a button in the toast (e.g. Undo).
+  ui.toast = (msg, kind = 'info', ms = 3500, action = null) => {
     toastEl = toastEl || document.body.appendChild(h('div', { class: 'cc-toast-wrap' }));
     const t = h('div', { class: 'cc-toast cc-toast-' + kind, role: 'status' }, msg);
+    if (action) {
+      const b = h('button', { type: 'button', class: 'cc-toast-action' }, action.label);
+      b.addEventListener('click', () => { t.remove(); action.fn(); });
+      t.append(b);
+    }
     toastEl.append(t);
     setTimeout(() => t.classList.add('cc-toast-out'), ms);
     setTimeout(() => t.remove(), ms + 400);

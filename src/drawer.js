@@ -215,7 +215,11 @@
         seats && h('div', { class: 'cc-p-sub' + (s.remainingSeats > 0 ? '' : ' cc-danger') }, seats),
         status,
         s.tags.length > 0 && h('div', { class: 'cc-chips cc-p-links' }, s.tags.map((t) => h('span', { class: 'cc-chip' }, t)))),
-      (s.canBookmark || s.attending || s.maxSeats) ? h('div', { class: 'cc-row cc-p-actions' }, toggle) : null,
+      h('div', { class: 'cc-row cc-p-actions' },
+        (s.canBookmark || s.attending || s.maxSeats) ? toggle : null,
+        !s.attending && CC.calendar && (CC.calendar.isHidden(s)
+          ? ui.button('Unhide', { variant: 'ghost', onClick: async () => { CC.calendar.unhideSession(s); close(); } })
+          : ui.button('Not for me', { variant: 'ghost', title: 'Hide this session from your calendar', onClick: async () => { CC.calendar.hideSession(s); close(); } }))),
       desc && h('section', { class: 'cc-p-field' }, h('div', { class: 'cc-p-label' }, 'About'), h('div', { class: 'cc-p-text cc-s-desc', html: desc })),
       s.speakers.length > 0 && h('section', { class: 'cc-p-field' },
         h('div', { class: 'cc-p-label' }, s.speakers.length > 1 ? 'Speakers' : 'Speaker'),
