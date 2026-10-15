@@ -136,27 +136,6 @@ html.cc-on [class*="timeline-block__BlockWrapper-sc-"] [class*="item__Container-
 }
 .cc-ghost-chip:hover, .cc-ghost-chip:focus-visible { border-color: var(--cc-tertiary); color: var(--cc-text-muted); background: #fff; outline: none; }
 .cc-ghost-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cc-cl-card { display: flex; flex-direction: column; gap: 2px; }
-.cc-cl-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-weight: 600; font-size: 13px; }
-.cc-cl-dayview {
-  border: 0; background: none; padding: 0; cursor: pointer; font: 500 12px var(--cc-font); color: var(--cc-focus); white-space: nowrap;
-}
-.cc-cl-dayview:hover { text-decoration: underline; }
-.cc-cl-row { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: var(--cc-radius-sm); cursor: pointer; }
-.cc-cl-row:hover, .cc-cl-row:focus-visible { background: var(--cc-surface-variant); outline: none; }
-.cc-cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.cc-cl-title { font-size: 13px; line-height: 1.3; }
-.cc-cl-meta { font-size: 11px; color: var(--cc-text-muted); }
-.cc-cl-actions { display: flex; gap: 4px; opacity: 0; }
-.cc-cl-row:hover .cc-cl-actions, .cc-cl-row:focus-within .cc-cl-actions { opacity: 1; }
-.cc-cl-btn {
-  width: 22px; height: 22px; border-radius: 50%; border: 1px solid #ccc; background: #fff; color: #777;
-  font-size: 12px; line-height: 20px; padding: 0; cursor: pointer;
-}
-.cc-cl-btn:hover { border-color: var(--cc-danger); color: var(--cc-danger); background: var(--cc-danger-container); }
-.cc-cl-add:hover { border-color: var(--cc-success); color: var(--cc-success); background: var(--cc-success-container); }
-.cc-cl-row.cc-ghost-hidden .cc-cl-title { text-decoration: line-through; }
-
 /* Day view: one day gets the full width. */
 .cc-day-off { display: none !important; }
 html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { flex: 1 1 auto !important; width: auto !important; }
@@ -189,6 +168,9 @@ html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { f
 .cc-own-session:hover .cc-own-x, .cc-own-x:focus-visible { opacity: 1; }
 .cc-own-session:hover [class*="item__ActionIcon-sc-"] { visibility: hidden; }
 .cc-own-x:hover { background: var(--cc-danger-container); color: var(--cc-danger); box-shadow: 0 0 0 1px var(--cc-danger); }
+/* The My profile / My contacts / My schedule / My bookmarks picker above the calendar
+   (profile and contacts are still in the avatar menu). */
+html.cc-page-my-schedule [class*="content__Inner-sc-"] > [class*="base__Wrapper-sc-"] { display: none !important; }
 /* The schedule sidebar's colour legend: people know what green and orange mean. */
 html.cc-page-my-schedule [class*="captions__Wrapper-sc-"],
 html.cc-page-my-schedule [class*="captions__Wrapper-sc-"] + [class*="divider__"] { display: none !important; }
@@ -233,6 +215,15 @@ html.cc-page-my-schedule [class*="captions__Wrapper-sc-"] + [class*="divider__"]
 }
 
 /* ---------- nav ---------- */
+/* The event nav sits inside the top bar (one row instead of two). nav.js sets --cc-nav-left
+   to just after the event switcher so it never overlaps it. */
+html.cc-on [class*="top-bar__Wrapper-sc-"] { position: relative; }
+html.cc-on [class*="submenu-wrapper__Container-sc-"] {
+  position: absolute !important; top: 6px; left: var(--cc-nav-left, 50%); width: auto !important; z-index: 2;
+}
+html.cc-on [class*="content__Container-sc-"] { top: 80px !important; }
+/* The calendar's height was sized for the old two-row header; give it the freed space. */
+html.cc-on.cc-page-my-schedule [class*="desktop__Container-sc-"] { height: calc(100vh - 180px) !important; }
 .cc-nav-first { order: -1; }
 .cc-nav-inbox { position: relative; }
 .cc-nav-badge {

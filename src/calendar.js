@@ -315,41 +315,6 @@
     });
   };
 
-  const dayViewBtn = (key) => {
-    const b = h('button', { type: 'button', class: 'cc-cl-dayview' }, 'Open day view →');
-    b.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
-    return b;
-  };
-
-  // A busy time: hover lists every session with its full title and time.
-  const clusterCard = (cl, col, hid, key) => {
-    const rows = cl.items.slice().sort((a, b) => a.start - b.start || a.end - b.end).map((s) => {
-      const hiddenNow = isHidden(s, hid);
-      const x = h('button', { type: 'button', class: 'cc-cl-btn', title: hiddenNow ? 'Unhide' : 'Not for me', 'aria-label': (hiddenNow ? 'Unhide ' : 'Hide ') + s.title }, hiddenNow ? '↺' : '✕');
-      x.addEventListener('click', (e) => { e.stopPropagation(); hiddenNow ? unhideSession(s) : hideSession(s); });
-      const add = h('button', { type: 'button', class: 'cc-cl-btn cc-cl-add', title: 'Add to schedule', 'aria-label': 'Add ' + s.title }, '+');
-      add.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        add.disabled = true;
-        try { await CC.data.toggleSession(s.id); ui.hideHoverCard(); ui.toast(`Added “${s.title}”`, 'success'); }
-        catch (err) { add.disabled = false; ui.toast('Couldn’t add: ' + (err.message || err), 'error'); }
-      });
-      if (s.maxSeats && s.remainingSeats <= 0) { add.disabled = true; add.title = 'Full'; }
-      const row = h('div', { class: 'cc-cl-row' + (hiddenNow ? ' cc-ghost-hidden' : ''), tabindex: '0', role: 'button', 'aria-label': `${s.title}, ${ui.range(s.start, s.end)}` },
-        h('div', { class: 'cc-cl-main' },
-          h('div', { class: 'cc-cl-title' }, s.title),
-          h('div', { class: 'cc-cl-meta' }, ui.range(s.start, s.end))),
-        h('div', { class: 'cc-cl-actions' }, add, x));
-      row.addEventListener('click', () => { ui.hideHoverCard(); CC.drawer.openSession(s.id); });
-      return row;
-    });
-    return h('div', { class: 'cc-cl-card' },
-      h('div', { class: 'cc-cl-head' },
-        h('span', null, `${cl.items.length} sessions you’re not attending`),
-        dayViewBtn(key)),
-      rows);
-  };
-
   let rendering = false, lastSig = '';
   const render = async (force) => {
     if (rendering || !isCalendarPage()) return;
@@ -404,8 +369,8 @@
         const area = h('div', { class: 'cc-ghost-area', style: { right: '2px' } });
         layer.append(area);
 
-        // A few at once sit side by side as real blocks. A busy time becomes a small "+N" chip
-        // (hover for the list, click for day view); in day view everything is a real block.
+        // A few at once sit side by side as real blocks. A busy time becomes one "N other sessions"
+        // block that opens the day view; in day view everything is a real block.
         const maxLanes = dayFocus ? 6 : 2;
         for (const cl of clusters(todays.filter((s) => !isLogistics(s)))) {
           const n = assignLanes(cl.items);
@@ -425,10 +390,9 @@
           } else {
             const chip = h('button', {
               type: 'button', class: 'cc-ghost-chip',
-              'aria-label': `${cl.items.length} sessions you're not attending. Click for day view`,
+              'aria-label': `${cl.items.length} other sessions. Open day view`, title: 'Open day view',
               style: { top: yOf(cl.start) + 'px', height: hOf(cl.start, cl.end) + 'px' },
             }, h('span', { class: 'cc-ghost-chip-label' }, `${cl.items.length} other sessions`));
-            ui.hoverCard(chip, () => clusterCard(cl, col, hid, key));
             chip.addEventListener('click', (e) => { e.stopPropagation(); setDayFocus(key); });
             area.append(chip);
           }
@@ -442,11 +406,27 @@
       });
       cols.forEach((c) => { scaleBlocks(c); fitBlocks(c); });
       drawNowLine(cols, days, ppm);
+      scrollToMorning(wrapper, ppm);
     } catch (e) {
       CC.warn('calendar', e);
     } finally {
       rendering = false;
     }
+  };
+
+  // Open the calendar at 8 AM (once per visit), not at midnight.
+  let scrolledToMorning = false;
+  const scrollToMorning = (wrapper, ppm) => {
+    if (scrolledToMorning) return;
+    let el = wrapper.parentElement;
+    while (el && el !== document.body) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) break;
+      el = el.parentElement;
+    }
+    if (!el || el === document.body) return;
+    el.scrollTop = Math.max(0, 8 * 60 * ppm - 12); // a little above, so the "8 AM" label shows
+    scrolledToMorning = true;
   };
 
   // A "now" line across today's column.
@@ -521,7 +501,7 @@
   CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf, setDayFocus };
   CC.on('dom', () => { preferCalendar(); render(false); });
   CC.on('route', () => {
-    switched = false; lastSig = ''; dayFocus = null;
+    switched = false; lastSig = ''; dayFocus = null; scrolledToMorning = false;
     document.documentElement.classList.remove('cc-dayview');
     if (CC.route().page !== 'my-schedule') document.documentElement.classList.remove('cc-ghosts-on');
   });

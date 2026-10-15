@@ -60,8 +60,26 @@
     router.replace(schedulePath()).finally(() => { redirecting = false; });
   };
 
+  // Put the nav just after the event switcher in the top bar.
+  const placeNav = () => {
+    const bar = document.querySelector('[class*="top-bar__Wrapper-sc-"]');
+    const navBox = document.querySelector('[class*="submenu-wrapper__Container-sc-"]');
+    if (!bar) return;
+    // Rightmost text in the left half of the bar (logo, org, event name) that isn't the nav itself.
+    let right = 0;
+    for (const e of bar.querySelectorAll('*')) {
+      if (navBox && navBox.contains(e)) continue;
+      const r = e.getBoundingClientRect();
+      // Small things only (logo, org mark, event name), not full-width wrappers or dividers.
+      if (!r.width || r.width > 500 || r.top > 50 || r.left > innerWidth / 2) continue;
+      if (e.children.length === 0 || e.tagName === 'svg') right = Math.max(right, r.right);
+    }
+    if (right > 0) document.documentElement.style.setProperty('--cc-nav-left', Math.round(right + 32) + 'px');
+  };
+  window.addEventListener('resize', placeNav);
+
   CC.nav = { scheduleLink, schedulePath };
-  CC.on('dom', () => { tidyNav(); hideIcons(); });
+  CC.on('dom', () => { tidyNav(); hideIcons(); placeNav(); });
   CC.on('route', redirect);
   CC.on('ready', redirect);
 })();
