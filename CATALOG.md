@@ -103,7 +103,7 @@ Persisted-query hashes as of 2026-10-15 (perishable). We prefer our own query te
 |---|---|---|
 | Calendar with unattended sessions in grey | My Schedule Calendar (3 days, meetings + your sessions) | **Mod**: inject grey session blocks into their columns using their block classes; hover card from session data; click = `Core_bookmarkPlanning` |
 | Unified inbox | Messages page (3 columns) + bell drawer data | **Mod Messages page**: prepend meeting + connection requests to the thread list; right aside becomes the full profile with Accept/Decline/Connect/Meet |
-| Inline profile, no navigation | Person page; Messages right aside | **Drawer** that renders their person page (same-origin iframe with chrome hidden, so all their buttons work), intercepting person links everywhere |
+| Inline profile, no navigation | Person page; Messages right aside | **Side panel** rendered from their data with their theme (Swapcard's CSP `frame-ancestors` forbids framing its own pages, so embedding the person page isn't possible), intercepting person, session and meeting links |
 | Book with mutual availability | Meet modal already computes mutual slots | **Mod step 2 only**: replace chips with a day calendar (your meetings + sessions as context, mutual slots highlighted); selecting calls their own slot click so the rest of their modal is untouched |
 | Cruft removal | n/a | CSS + small DOM hides |
 | Feedback | none | Ours: floating button, capture + markup, send to Tally |

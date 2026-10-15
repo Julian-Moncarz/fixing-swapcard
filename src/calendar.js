@@ -77,6 +77,26 @@
     return wrapper.scrollHeight / 1440 || 2;
   };
 
+  // Which zone is Swapcard's calendar showing? (Its "Time zone and format" setting can switch to
+  // yours.) Compare one of your own session blocks' position with its known start time.
+  const detectDisplayTz = (cols, sessions, ppm) => {
+    const eventTz = CC._eventTz;
+    const mine = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!eventTz || !mine || eventTz === mine) { CC._tz = eventTz; return; }
+    const byId = new Map(sessions.map((s) => [s.id, s]));
+    for (const col of cols) {
+      for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
+        const id = ((b.querySelector('a[href*="/planning/"]') || {}).getAttribute?.('href') || '').match(/\/planning\/([^/?#]+)/);
+        const s = id && byId.get(id[1]);
+        const top = parseFloat(b.style.top);
+        if (!s || isNaN(top)) continue;
+        const mins = top / ppm;
+        if (Math.abs(mins - ui.minutes(s.start, eventTz)) <= 2) { CC._tz = eventTz; return; }
+        if (Math.abs(mins - ui.minutes(s.start, mine)) <= 2) { CC._tz = mine; return; }
+      }
+    }
+  };
+
   // Map each day column to a date key using the header's day-of-month numbers.
   const columnDays = (sessions) => {
     const cells = CC.$$(sc('desktop-date-header__DayCell'));
@@ -226,6 +246,10 @@
     for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
       const box = b.querySelector('[class*="item__Container-sc-"]');
       if (!box) continue;
+      // Only refit when the block's size or text changed (this runs on every DOM change).
+      const fitSig = b.style.width + '|' + b.style.height + '|' + box.textContent.length;
+      if (box.dataset.ccFit === fitSig) continue;
+      box.dataset.ccFit = fitSig;
       box.querySelectorAll('.cc-fit-hidden').forEach((e) => e.classList.remove('cc-fit-hidden'));
       box.classList.remove('cc-fit-clamp');
       const fits = () => box.scrollHeight <= box.clientHeight + 1;
@@ -315,9 +339,10 @@
     });
   };
 
-  let rendering = false, lastSig = '';
+  let rendering = false, again = false, lastSig = '';
   const render = async (force) => {
-    if (rendering || !isCalendarPage()) return;
+    if (!isCalendarPage()) return;
+    if (rendering) { again = again || !!force; return; } // queue it; don't drop it
     const wrapper = document.querySelector(sc('styles__ColumnsWrapper'));
     const cols = CC.$$(sc('styles__ColumnContainer'), wrapper);
     if (!cols.length) return;
@@ -329,7 +354,8 @@
     cols.forEach(decorateOwnBlocks);
     const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'))
       && (!dayFocus || !!document.querySelector(`${sc('desktop-date-header__DayCell')}.cc-day-off`));
-    const sig = cols.length + ':' + show;
+    // Include the dates on screen, so paging to other days redraws even if React reuses columns.
+    const sig = CC.$$(sc('desktop-date-header__DayCell')).map((c) => c.textContent.trim().slice(0, 12)).join(',') + ':' + show;
     if (!force && intact && sig === lastSig) return;
     rendering = true;
     try {
@@ -344,6 +370,7 @@
       const showHidden = showHiddenPref();
       const now = CC.now();
       updateControls(sessions, hid);
+      detectDisplayTz(cols, sessions, pxPerMin(wrapper));
       const days = columnDays(sessions);
       applyDayFocus(cols, days);
       renderDayInfo(sessions, days);
@@ -411,6 +438,7 @@
       CC.warn('calendar', e);
     } finally {
       rendering = false;
+      if (again) { const f = again; again = false; render(f); }
     }
   };
 
@@ -467,6 +495,11 @@
       fams.length > 0 && h('div', { class: 'cc-hidden-fams' }, h('span', { class: 'cc-small cc-muted' }, 'Hidden groups: '), fams));
   };
 
+  // One set of document listeners closes the View popover (not one per header render).
+  const closeViewPops = () => CC.$$('.cc-view-pop').forEach((p) => { p.hidden = true; });
+  document.addEventListener('click', closeViewPops);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeViewPops(); });
+
   // A small "View" button in the calendar's top-left corner holds the view options (the old
   // Appearance sidebar is hidden so the calendar gets the full width).
   const injectToggle = () => {
@@ -480,7 +513,8 @@
     tz.addEventListener('click', () => {
       pop.hidden = true;
       const theirs = CC.$$('button, a, div').find((e) => e.textContent.trim() === 'Time zone and format' && e.closest(sc('aside__Aside')));
-      (theirs && (theirs.closest('button, a, [role="button"]') || theirs)).click();
+      const target = theirs && (theirs.closest('button, a, [role="button"]') || theirs);
+      if (target) target.click(); else ui.toast('Couldn’t find Swapcard’s time zone settings on this page.', 'error');
     });
     const pop = h('div', { class: 'cc-view-pop', hidden: true, role: 'dialog', 'aria-label': 'View options' },
       h('label', { class: 'cc-allsessions-toggle' }, input, ' Show sessions I’m not attending'),
@@ -489,8 +523,6 @@
     const btn = h('button', { type: 'button', class: 'cc-view-btn', 'aria-haspopup': 'dialog', title: 'View options' }, 'View ▾');
     btn.addEventListener('click', (e) => { e.stopPropagation(); pop.hidden = !pop.hidden; });
     pop.addEventListener('click', (e) => e.stopPropagation());
-    document.addEventListener('click', () => { pop.hidden = true; });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pop.hidden = true; });
     row.append(h('div', { class: 'cc-view' }, btn, pop));
   };
 
@@ -521,10 +553,14 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && dayFocus && !(CC.drawer && CC.drawer.isOpen())) setDayFocus(null);
   });
+  CC.on('event-changed', () => { sessionsCache = []; dayFocus = null; lastSig = ''; });
   CC.on('schedule-changed', () => setTimeout(() => render(true), 600));
   let resizeTimer;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => CC.$$(sc('styles__ColumnContainer')).forEach(fitBlocks), 150);
+    resizeTimer = setTimeout(() => {
+      CC.$$('[data-cc-fit]').forEach((e) => { delete e.dataset.ccFit; });
+      CC.$$(sc('styles__ColumnContainer')).forEach(fitBlocks);
+    }, 150);
   });
 })();

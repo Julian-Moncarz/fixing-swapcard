@@ -5,10 +5,14 @@
   if (!CC || CC.nav) return;
 
   const schedulePath = () => `/event/${CC.route().slug}/my-schedule?view=schedule&appearance=calendar`;
-  const inTopNav = (el) => el.getBoundingClientRect().top < 120;
 
   // Swapcard's own "My Schedule" link, found by URL so renaming it doesn't lose it.
-  const scheduleLink = () => CC.$$('a[href]').find((a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && inTopNav(a) && !a.classList.contains('cc-nav-inbox'));
+  // Looked up inside Swapcard's nav container only (this runs on every DOM change).
+  const navContainer = () => document.querySelector(CC.sc('submenu-wrapper__Container'));
+  const scheduleLink = () => {
+    const box = navContainer();
+    return box ? CC.$$('a[href]', box).find((a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && !a.classList.contains('cc-nav-inbox')) : null;
+  };
 
   // Nav links to drop: Home (the bare event URL) and Agenda (a plannings view).
   const isRedundant = (a) => {
@@ -41,8 +45,10 @@
 
   // The top-right bell and chat icons.
   const hideIcons = () => {
-    for (const el of CC.$$('[aria-label="Notifications"], [aria-label="Messages"]')) {
-      if (!inTopNav(el)) continue;
+    const bar = document.querySelector(CC.sc('top-bar__Wrapper'));
+    if (!bar) return;
+    for (const el of CC.$$('[aria-label="Notifications"], [aria-label="Messages"]', bar)) {
+      if (el.classList.contains('cc-hidden-cruft') || el.closest('.cc-hidden-cruft')) continue;
       const target = el.closest('a, button') || el;
       target.classList.add('cc-hidden-cruft');
     }
@@ -57,14 +63,19 @@
     const router = window.next && window.next.router;
     if (!router) return;
     redirecting = true;
-    router.replace(schedulePath()).finally(() => { redirecting = false; });
+    router.replace(schedulePath()).catch(() => {}).finally(() => { redirecting = false; });
   };
 
   // Put the nav just after the event switcher in the top bar.
-  const placeNav = () => {
+  let placeSig = '';
+  const placeNav = (force) => {
     const bar = document.querySelector('[class*="top-bar__Wrapper-sc-"]');
     const navBox = document.querySelector('[class*="submenu-wrapper__Container-sc-"]');
     if (!bar) return;
+    // Measuring is expensive; only redo it when the bar's width or text changed.
+    const sig = innerWidth + '|' + bar.textContent.length;
+    if (!force && sig === placeSig) return;
+    placeSig = sig;
     // Rightmost text in the left half of the bar (logo, org, event name) that isn't the nav itself.
     let right = 0;
     for (const e of bar.querySelectorAll('*')) {
@@ -84,7 +95,7 @@
     const limit = avatar ? avatar.getBoundingClientRect().left - 16 : innerWidth - 80;
     document.documentElement.classList.toggle('cc-nav-inline', left + navWidth <= limit);
   };
-  window.addEventListener('resize', placeNav);
+  window.addEventListener('resize', () => placeNav(true));
 
   // Highlight the tab for the page you're on.
   const markActive = () => {
@@ -102,6 +113,6 @@
 
   CC.nav = { scheduleLink, schedulePath };
   CC.on('dom', () => { tidyNav(); hideIcons(); placeNav(); markActive(); });
-  CC.on('route', redirect);
+  CC.on('route', () => { redirect(); placeNav(true); });
   CC.on('ready', redirect);
 })();

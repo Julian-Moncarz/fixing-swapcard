@@ -4,7 +4,6 @@
   if (window.CalmerCard) return;
   const CC = (window.CalmerCard = { version: '0.1.0' });
 
-  CC.isEmbed = window.top !== window;
   CC.debug = (() => { try { return localStorage.getItem('cc:debug') === '1'; } catch { return false; } })();
   CC.log = (...a) => CC.debug && console.log('[CalmerCard]', ...a);
   CC.warn = (...a) => console.warn('[CalmerCard]', ...a);
@@ -12,7 +11,12 @@
   // ---------- tiny event bus ----------
   const handlers = {};
   CC.on = (ev, fn) => ((handlers[ev] = handlers[ev] || []).push(fn), fn);
-  CC.emit = (ev, ...a) => (handlers[ev] || []).forEach((fn) => { try { fn(...a); } catch (e) { CC.warn(ev, e); } });
+  CC.emit = (ev, ...a) => (handlers[ev] || []).forEach((fn) => {
+    try {
+      const r = fn(...a);
+      if (r && typeof r.catch === 'function') r.catch((e) => CC.warn(ev, e));
+    } catch (e) { CC.warn(ev, e); }
+  });
 
   // ---------- route changes (Next.js client routing) ----------
   let lastPath = location.pathname + location.search;

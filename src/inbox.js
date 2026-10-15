@@ -4,7 +4,7 @@
 // Keyboard: J/K move, A accept, D decline, R reply, / search.
 (() => {
   const CC = window.CalmerCard;
-  if (!CC || CC.isEmbed || CC.inbox) return;
+  if (!CC || CC.inbox) return;
   const { h, sc, ui } = CC;
 
   const inboxPath = () => `/event/${CC.route().slug}/messages`;
@@ -63,18 +63,7 @@
     updateBadge();
   };
 
-  // The bell becomes a shortcut to the inbox.
-  const retireBell = () => {
-    const bell = CC.$$('button[aria-label="Notifications"], [aria-label="Notifications"]').find((b) => !b.dataset.ccBell);
-    if (!bell) return;
-    bell.dataset.ccBell = '1';
-    bell.addEventListener('click', (e) => {
-      e.preventDefault(); e.stopPropagation();
-      const router = window.next && window.next.router;
-      router ? router.push(inboxPath()) : location.assign(inboxPath());
-    }, true);
-    bell.title = 'Inbox';
-  };
+
 
   // ---------- the merged list ----------
   // One entry per person: their chat (if any) plus their pending request (if any).
@@ -285,16 +274,23 @@
   };
 
   // ---------- data + mounting ----------
-  let loading = false;
+  let loading = false, again = false, lastSig = '';
+  // A compact fingerprint of what the list shows, so periodic refreshes that change nothing
+  // don't rebuild the list (losing search focus) or the request card (losing an open picker).
+  const sigOf = (entries) => entries.map((e) => [e.key, e.needsYou, e.waiting, e.at, e.chat && e.chat.unread, e.request && e.request.id].join(':')).join('|');
   const refresh = async (force) => {
-    if (!isMessagesPage() || loading) return;
+    if (!isMessagesPage()) return;
+    if (loading) { again = again || force; return; } // queue it; don't drop it
     loading = true;
     try {
       if (force) { CC.data.invalidate('chats'); CC.data.invalidate('requests'); CC.data.invalidate('agenda:'); }
       const ev = await CC.data.event();
+      if (!ev || !ev.me) return; // not registered for this event: leave Swapcard's list alone
       CC._meUserId = ev.me.userId;
       const [chats, reqs, agenda] = await Promise.all([CC.data.chats(), CC.data.requests(), CC.data.agenda().catch(() => [])]);
-      state.entries = buildEntries(chats, reqs);
+      const entries = buildEntries(chats, reqs);
+      const sig = sigOf(entries);
+      state.entries = entries;
       state.agenda = agenda;
       // Keep the selection in sync with the open conversation.
       if (!requestOnly) {
@@ -303,12 +299,20 @@
       } else {
         requestOnly = state.entries.find((e) => e.key === requestOnly.key) || null;
       }
+      // Only now hide Swapcard's own list: if loading had failed, theirs would still be there.
+      const left = CC.layoutColumns().asides[0];
+      if (left) left.classList.add('cc-ib-owned');
+      const busy = document.querySelector('.cc-ib-pin .cc-p-book, .cc-ib-solo .cc-p-book') || (document.activeElement && document.activeElement.closest && document.activeElement.closest('.cc-ib-card'));
+      if (sig === lastSig && listEl && listEl.childElementCount) return; // nothing changed (mount() restores a missing card)
+      lastSig = sig;
       renderList();
-      renderMain();
+      if (!busy) renderMain();
     } catch (e) {
       CC.warn('inbox', e);
+      CC.layoutColumns().asides[0]?.classList.remove('cc-ib-owned');
     } finally {
       loading = false;
+      if (again) { const f = again; again = false; refresh(f); }
     }
   };
 
@@ -317,10 +321,10 @@
     const { asides } = CC.layoutColumns();
     const left = asides[0];
     if (!left) return;
-    left.classList.add('cc-ib-owned');
     if (!left.querySelector(':scope > .cc-ib')) {
       listEl = h('div', { class: 'cc-ib' });
       left.prepend(listEl);
+      lastSig = '';
       refresh(false);
     } else {
       listEl = left.querySelector(':scope > .cc-ib');
@@ -356,7 +360,7 @@
 
   // requestCard is exposed for previewing the card with sample data while developing.
   CC.inbox = { refreshCounts, refresh, renderSideProfile, requestCard, state: () => state };
-  CC.on('dom', () => { injectNav(); retireBell(); mount(); });
+  CC.on('dom', () => { injectNav(); mount(); });
   CC.on('route', () => {
     refreshCounts();
     if (!isMessagesPage()) { requestOnly = null; return; }
@@ -369,6 +373,7 @@
     renderList();
     renderMain();
   });
+  CC.on('event-changed', () => { state.entries = []; state.agenda = []; state.selectedKey = null; requestOnly = null; lastSig = ''; });
   CC.on('requests-changed', () => { refreshCounts(); setTimeout(() => refresh(true), 300); });
   CC.on('drawer-closed', () => { CC.data.invalidate('requests'); refreshCounts(); if (isMessagesPage()) refresh(true); });
   setInterval(() => { if (!document.hidden) { refreshCounts(); if (isMessagesPage()) refresh(true); } }, 30000);

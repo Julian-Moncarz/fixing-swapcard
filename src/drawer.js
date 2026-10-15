@@ -4,7 +4,7 @@
 // a calendar of mutual free time, add/remove sessions. A Back button walks the panel's history.
 (() => {
   const CC = window.CalmerCard;
-  if (!CC || CC.isEmbed || CC.drawer) return;
+  if (!CC || CC.drawer) return;
   const { h, ui } = CC;
 
   const PERSON_RE = /^\/event\/([^/]+)\/person\/([^/?#]+)/;
@@ -38,7 +38,7 @@
       close();
       CC.allowNavigation = true;
       const router = window.next && window.next.router;
-      (router ? router.push(path) : Promise.resolve(location.assign(path))).finally(() => { CC.allowNavigation = false; });
+      (router ? router.push(path) : Promise.resolve(location.assign(path))).catch(() => {}).finally(() => { CC.allowNavigation = false; });
     });
     const closeBtn = h('button', { class: 'cc-icon-btn', type: 'button', 'aria-label': 'Close' }, '✕');
     closeBtn.addEventListener('click', () => close());
@@ -88,8 +88,9 @@
       h('div', { class: 'cc-p-label' }, f.name),
       Array.isArray(v)
         ? h('div', { class: 'cc-chips' }, v.map((x) => h('span', { class: 'cc-chip' }, x)))
-        : /Url/.test(f.type)
-          ? h('a', { href: v, target: '_blank', rel: 'noopener noreferrer' }, v)
+        // Attendee-typed URLs only become links if they're http(s) (no javascript: etc.).
+        : /Url/.test(f.type) && /^https?:\/\//i.test(String(v).trim())
+          ? h('a', { href: String(v).trim(), target: '_blank', rel: 'noopener noreferrer' }, v)
           : h('div', { class: 'cc-p-text' }, v));
   };
 
@@ -387,7 +388,8 @@
     let url;
     try { url = new URL(a.href, location.href); } catch { return; }
     const view = url.origin === location.origin && viewFor(url.pathname);
-    if (!view) return;
+    // Links into another event open normally (our panel loads data for the current event).
+    if (!view || url.pathname.split('/')[2] !== CC.route().slug) return;
     e.preventDefault();
     e.stopPropagation();
     ui.hideHoverCard();
@@ -408,7 +410,7 @@
       let path = target;
       try { path = new URL(target, location.href).pathname; } catch {}
       const view = viewFor(path);
-      if (view && !CC.allowNavigation) {
+      if (view && !CC.allowNavigation && path.split('/')[2] === CC.route().slug) {
         show(view);
         return Promise.resolve(true);
       }

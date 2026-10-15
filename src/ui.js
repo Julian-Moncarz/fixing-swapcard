@@ -4,22 +4,31 @@
   if (!CC || CC.ui) return;
   const { h } = CC;
 
-  const tz = () => (CC._tz || undefined);
-  CC.data && CC.data.event().then((ev) => { if (ev) CC._tz = ev.timezone; }).catch(() => {});
+  // Times show in the zone Swapcard's calendar is using: the event's by default (CC._eventTz),
+  // or yours if you switched "Time zone and format" (calendar.js detects that into CC._tz).
+  const tz = () => CC._tz || CC._eventTz || undefined;
 
-  const fmt = (d, opts) => new Intl.DateTimeFormat(undefined, { timeZone: tz(), ...opts }).format(d);
+  // Intl formatters are slow to build; cache them by locale, zone and options.
+  const fmtCache = new Map();
+  const formatter = (locale, opts) => {
+    const key = locale + '|' + (opts.timeZone || '') + '|' + JSON.stringify(opts);
+    if (!fmtCache.has(key)) fmtCache.set(key, new Intl.DateTimeFormat(locale, opts));
+    return fmtCache.get(key);
+  };
+  const fmt = (d, opts) => formatter(undefined, { timeZone: tz(), ...opts }).format(d);
+  const minutesIn = (d, zone) => {
+    const p = formatter('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
+    const g = (t) => +p.find((x) => x.type === t).value;
+    return g('hour') * 60 + g('minute');
+  };
   const ui = (CC.ui = {
     time: (d) => fmt(d, { hour: 'numeric', minute: '2-digit' }),
     day: (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' }),
-    // YYYY-MM-DD in the event timezone (en-CA formats dates as ISO).
-    dayKey: (d) => new Intl.DateTimeFormat('en-CA', { timeZone: tz(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(d),
+    // YYYY-MM-DD in the display zone (en-CA formats dates as ISO).
+    dayKey: (d) => formatter('en-CA', { timeZone: tz(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(d),
     range: (a, b) => `${ui.time(a)} to ${ui.time(b)}`,
-    // Minutes since midnight in the event timezone.
-    minutes: (d) => {
-      const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz(), hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d);
-      const g = (t) => +p.find((x) => x.type === t).value;
-      return g('hour') * 60 + g('minute');
-    },
+    // Minutes since midnight in the display zone (or a given zone).
+    minutes: (d, zone = tz()) => minutesIn(d, zone),
     relative: (d) => {
       const s = (Date.now() - d.getTime()) / 1000;
       if (s < 60) return 'just now';

@@ -2,7 +2,7 @@
 // (pen, box, blur). Nothing is sent anywhere until the person clicks Send.
 (() => {
   const CC = window.CalmerCard;
-  if (!CC || CC.isEmbed || CC.feedback) return;
+  if (!CC || CC.feedback) return;
   const { h, ui } = CC;
 
   // Feedback becomes a pre-filled GitHub issue; changes can be sent as a pull request.

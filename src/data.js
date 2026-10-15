@@ -7,7 +7,7 @@
   const Q = {
     event: `query CalmerCardEvent($slug: String!) {
       event: Core_event(slug: $slug) {
-        _id slug title timezone beginsAt endsAt
+        _id slug title timezone beginsAt(format: ISO8601) endsAt(format: ISO8601)
         community { id }
         eventPerson { id userId }
         contents { views { __typename ... on Core_EventPlanningListView { id } ... on Core_EventPeopleListView { id } } }
@@ -20,7 +20,7 @@
         plannings(timezone: $tz, cursor: { first: 500 }) {
           totalCount
           nodes {
-            id beginsAt endsAt place type format htmlDescription maxSeats remainingSeats
+            id beginsAt(format: ISO8601) endsAt(format: ISO8601) place type format htmlDescription maxSeats remainingSeats
             categories { name }
             withEvent(eventId: $eventId) {
               title
@@ -35,11 +35,11 @@
     agenda: `query CalmerCardAgenda($eventId: ID!) {
       agenda: Core_myEventAgendaV2(eventId: $eventId) {
         __typename
-        ... on Core_Planning { id beginsAt endsAt place withEvent(eventId: $eventId) { title } }
+        ... on Core_Planning { id beginsAt(format: ISO8601) endsAt(format: ISO8601) place withEvent(eventId: $eventId) { title } }
         ... on Core_UserMeetingBooked {
           id starts ends
           meeting {
-            id status beginsAt endsAt
+            id status beginsAt(format: ISO8601) endsAt(format: ISO8601)
             place { id name }
             participants { id status person { id firstName lastName } }
           }
@@ -69,7 +69,7 @@
 
     session: `query CalmerCardSession($id: ID!, $eventId: ID!) {
       planning: Core_planning(_id: $id, eventId: $eventId) {
-        id beginsAt endsAt place format htmlDescription maxSeats remainingSeats
+        id beginsAt(format: ISO8601) endsAt(format: ISO8601) place format htmlDescription maxSeats remainingSeats
         categories { name }
         withEvent(eventId: $eventId) {
           title
@@ -247,7 +247,8 @@
     // My agenda: booked meetings and sessions I'm attending, normalised to {kind, start, end, title}.
     async agenda() {
       const ev = await data.event();
-      if (!ev) return [];
+      // Not registered for this event (or no event in the URL): nothing to show.
+      if (!ev || !ev.me) return [];
       return cached('agenda:' + ev.id, 30e3, async () => {
         const r = await CC.query(Q.agenda, { eventId: ev.id });
         return r.agenda.map((a) => {
@@ -294,10 +295,12 @@
     // Your chat conversations (Swapcard's chat API), newest first.
     async chats() {
       const ev = await data.event();
-      return cached('chats', 15e3, async () => {
+      if (!ev || !ev.me) return [];
+      return cached('chats:' + ev.id, 15e3, async () => {
         const r = await CC.query(Q.chats, { userId: ev.me.userId }, { client: 'chat' });
         const me = ev.me.userId;
-        return r.viewer.ownedUsers[0].channelsUsers.map((cu) => {
+        const owned = (r.viewer && r.viewer.ownedUsers && r.viewer.ownedUsers[0]) || {};
+        return (owned.channelsUsers || []).map((cu) => {
           const ch = cu.channel;
           const others = ch.channelUsers.filter((u) => u.userId !== me && !u.hasLeaved);
           const o = others[0] || {};
@@ -346,7 +349,8 @@
       const ev = await data.event();
       const { meeting: m } = await CC.query(Q.meeting, { id });
       const me = m.userParticipant || {};
-      const others = (m.participants || []).filter((p) => p.person && p.person.id !== ev.me.id);
+      const myId = ev && ev.me && ev.me.id;
+      const others = (m.participants || []).filter((p) => p.person && p.person.id !== myId);
       return {
         id: m.id,
         status: m.status, // PENDING | CONFIRMED | DECLINED | CANCELED …
@@ -364,7 +368,7 @@
     // Pending requests for the current event (meeting + connection, received + sent).
     async requests() {
       const ev = await data.event();
-      return cached('requests', 20e3, async () => {
+      return cached('requests:' + ((ev && ev.id) || ''), 20e3, async () => {
         const r = await CC.query(Q.requests, {});
         return r.reqs.nodes
           .filter((n) => n.id && (!n.event || !ev || n.event.id === ev.id || n.event.slug === ev.slug))
@@ -391,8 +395,9 @@
 
     async mutualSlots(personIds) {
       const ev = await data.event();
-      const start = new Date(new Date(ev.beginsAt.replace(' ', 'T') + 'Z').getTime() - 36e5 * 24);
-      const end = new Date(new Date(ev.endsAt.replace(' ', 'T') + 'Z').getTime() + 36e5 * 24);
+      // A day either side of the event, so early and late slots are included.
+      const start = new Date(new Date(ev.beginsAt).getTime() - 36e5 * 24);
+      const end = new Date(new Date(ev.endsAt).getTime() + 36e5 * 24);
       const r = await CC.query(Q.mutualSlots, {
         eventId: ev.id,
         peopleIds: personIds,

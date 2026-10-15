@@ -50,8 +50,11 @@
     let hh = +m[1] % 12;
     if (m[3] && m[3].toUpperCase() === 'PM') hh += 12;
     if (!m[3]) hh = +m[1];
-    return hh * 60 + +m[2] === ui.minutes(date);
+    // Swapcard may show the event's zone or yours; accept either.
+    const mins = hh * 60 + +m[2];
+    return zones().some((z) => mins === ui.minutes(date, z));
   };
+  const zones = () => [...new Set([CC._tz || CC._eventTz, Intl.DateTimeFormat().resolvedOptions().timeZone].filter(Boolean))];
   const dayNumberOf = (el) => {
     // Find the nearest preceding date label (e.g. "Fri, Oct 16, 2026" or a "Friday / Oct 16" column header).
     const txt = el.textContent || '';
@@ -80,16 +83,15 @@
     }
     return best ? dayNumberOf(best) : null;
   };
-  const dayOfMonth = (d) => +new Intl.DateTimeFormat('en-US', { timeZone: CC._tz, day: 'numeric' }).format(d);
+  const dayOfMonth = (d, zone = CC._tz || CC._eventTz) => +new Intl.DateTimeFormat('en-US', { timeZone: zone, day: 'numeric' }).format(d);
 
   const clickTheirSlot = async (slot) => {
-    const want = dayOfMonth(slot.start);
     for (let attempt = 0; attempt < 8; attempt++) {
       // Topmost dialog first: "See more slots" opens a second dialog on top of the form.
       const dlgs = dialogs().filter((d) => /Date & time/.test(d.textContent)).reverse();
       if (!dlgs.length) return false;
       for (const dlg of dlgs) {
-        const chip = chipButtons(dlg).find((b) => sameTime(b, slot.start) && chipDay(b, dlg) === want);
+        const chip = chipButtons(dlg).find((b) => sameTime(b, slot.start) && zones().some((z) => chipDay(b, dlg) === dayOfMonth(slot.start, z)));
         if (chip) { chip.click(); return true; }
       }
       // Not visible yet: open (or page through) Swapcard's full slot list.
@@ -146,6 +148,7 @@
   const panel = (person, onClose, opts = {}) => {
     const box = h('div', { class: 'cc-p-book' }, h('div', { class: 'cc-muted cc-small' }, 'Finding times you’re both free…'));
     const name = person.firstName || 'them';
+    const radioName = 'cc-place-' + Math.random().toString(36).slice(2);
     (async () => {
       try {
         const [slots, agenda] = await Promise.all([CC.data.mutualSlots([person.id]), CC.data.agenda()]);
@@ -159,7 +162,7 @@
           if (!chosen || chosen.slot !== slot) return;
           const msg = h('textarea', { class: 'cc-fb-text cc-small-text', rows: '3', maxlength: '500', placeholder: `Optional message to ${name}` });
           const placeList = h('div', { class: 'cc-p-places', role: 'radiogroup', 'aria-label': 'Where' }, places.map((pl, i) => {
-            const input = h('input', { type: 'radio', name: 'cc-place', value: pl.id });
+            const input = h('input', { type: 'radio', name: radioName, value: pl.id });
             if (i === 0) { input.checked = true; chosen.placeId = pl.id; }
             input.addEventListener('change', () => { chosen.placeId = pl.id; });
             return h('label', { class: 'cc-p-place' }, input, ' ', [pl.group, pl.name].filter(Boolean).join(' · '));
@@ -196,15 +199,14 @@
 
   // ---- our panel inside Swapcard's Meet modal ----
   let busy = false;
+  const tried = new WeakSet(); // dialogs we've given up on (no retry loop on failure)
   const inject = async () => {
     const dlg = meetDialog();
-    if (!dlg || busy || dlg.querySelector('.cc-book')) return;
+    if (!dlg || busy || dlg.querySelector('.cc-book') || tried.has(dlg)) return;
     const chips = chipButtons(dlg);
     if (!chips.length) return;
     busy = true;
     try {
-      const ev = await CC.data.event();
-      CC._tz = ev.timezone;
       // Insert above Swapcard's chips: before their day group if there is one.
       const group = chips[0].closest(CC.sc('quick-slot-selection__DayWrapper')) || chips[0].parentElement;
       if (!group || !group.parentElement || dlg.querySelector('.cc-book')) return;
@@ -225,6 +227,7 @@
       dlg.classList.add('cc-book-active');
     } catch (e) {
       CC.warn('booking', e);
+      tried.add(dlg);
       dlg.querySelector('.cc-book')?.remove();
     } finally {
       busy = false;
