@@ -120,7 +120,12 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 }
 .cc-ghost-layer { position: absolute; top: 0; bottom: 0; left: 58%; right: 0; pointer-events: none; z-index: 0; }
 .cc-ghost-area { position: absolute; top: 0; bottom: 0; left: 0; }
-.cc-ghost-strip { width: 7px; padding: 0; border-style: solid; border-color: #d6d6d6; background: #eee; }
+.cc-day-info {
+  margin: 2px 8px 6px; font: 400 11.5px/1.35 var(--cc-font); color: var(--cc-text-muted); text-align: center;
+}
+.cc-day-item { cursor: default; border-radius: 3px; padding: 0 2px; white-space: nowrap; }
+.cc-day-item:hover, .cc-day-item:focus-visible { background: var(--cc-tertiary-container); color: var(--cc-text); outline: none; }
+.cc-day-sep { color: #c4c4c4; }
 .cc-ghost-group { gap: 0; padding: 2px 4px; cursor: default; }
 .cc-ghost-count { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #aaa; }
 .cc-ghost-row {

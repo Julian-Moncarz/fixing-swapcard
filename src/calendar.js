@@ -31,8 +31,37 @@
     });
   };
 
-  const LONG_MIN = 100; // sessions longer than this (venue open, badge pickup) become thin strips
   const durMin = (s) => (s.end - s.start) / 60000;
+  // Venue logistics (venue hours, badge pickup) aren't things you attend; you just need the times.
+  // They go in a one-line summary under each day's date instead of the grid.
+  const LOGISTICS_RE = /^(venue (open|closed)|badge|early badge|registration|check-?in)\b/i;
+  const isLogistics = (s) => LOGISTICS_RE.test(s.title) || durMin(s) > 240;
+  const isNoise = (s) => /^venue closed\b/i.test(s.title);
+  const shortTime = (d) => ui.time(d).replace(':00', '');
+  const shortRange = (a, b) => {
+    const [x, y] = [shortTime(a), shortTime(b)];
+    const [mx, my] = [x.match(/\s?(AM|PM)$/i), y.match(/\s?(AM|PM)$/i)];
+    return (mx && my && mx[1] === my[1] ? x.replace(mx[0], '') : x) + '–' + y;
+  };
+  const shortTitle = (s) => s.title.replace(/\s*\(.*?\)\s*/g, ' ').replace(/^Venue open$/i, 'Venue').trim();
+
+  const renderDayInfo = (sessions, days) => {
+    CC.$$(sc('desktop-date-header__DayCell')).forEach((cell, i) => {
+      cell.querySelector(':scope > .cc-day-info')?.remove();
+      const key = days[i];
+      if (!key) return;
+      const items = sessions.filter((s) => ui.dayKey(s.start) === key && isLogistics(s) && !isNoise(s)).sort((a, b) => a.start - b.start);
+      if (!items.length) return;
+      const line = h('div', { class: 'cc-day-info' });
+      items.forEach((s, j) => {
+        if (j) line.append(h('span', { class: 'cc-day-sep' }, ' · '));
+        const el = h('span', { class: 'cc-day-item', tabindex: '0' }, `${shortTitle(s)} ${shortRange(s.start, s.end)}`);
+        ui.hoverCard(el, () => sessionCard(s));
+        line.append(el);
+      });
+      cell.append(line);
+    });
+  };
 
   // Clusters of overlapping sessions.
   const clusters = (items) => {
@@ -171,6 +200,7 @@
       if (!show) return;
       const sessions = await CC.data.sessions();
       const days = columnDays(sessions);
+      renderDayInfo(sessions, days);
       const ppm = pxPerMin(wrapper);
       cols.forEach((col, i) => {
         const key = days[i];
@@ -181,22 +211,11 @@
         const hOf = (a, b) => Math.max(18, ((b - a) / 60000) * ppm - 4);
         const label = (s) => `${s.title}, ${ui.range(s.start, s.end)}, not attending`;
 
-        // Long items: thin strips on the far right.
-        const long = todays.filter((s) => durMin(s) > LONG_MIN);
-        const stripLanes = assignLanes(long);
-        for (const s of long) {
-          const el = h('div', {
-            class: 'cc-ghost cc-ghost-strip', tabindex: '0', role: 'button', 'aria-label': label(s),
-            style: { top: yOf(s.start) + 'px', height: hOf(s.start, s.end) + 'px', right: s._lane * 9 + 'px' },
-          });
-          ui.hoverCard(el, () => sessionCard(s));
-          layer.append(el);
-        }
-        const area = h('div', { class: 'cc-ghost-area', style: { right: stripLanes * 9 + 2 + 'px' } });
+        const area = h('div', { class: 'cc-ghost-area', style: { right: '2px' } });
         layer.append(area);
 
-        // Short items: one or two side by side, or a single block listing a busy cluster.
-        for (const cl of clusters(todays.filter((s) => durMin(s) <= LONG_MIN))) {
+        // One or two side by side, or a single block listing a busy cluster.
+        for (const cl of clusters(todays.filter((s) => !isLogistics(s)))) {
           const n = assignLanes(cl.items);
           if (n <= 2) {
             for (const s of cl.items) {
