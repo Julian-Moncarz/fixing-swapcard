@@ -167,8 +167,7 @@
     const famCount = fam ? sessionsCache.filter((x) => familyOf(x) && famKey(familyOf(x)) === famKey(fam) && !x.attending).length : 0;
     const hideBtns = hidden
       ? [ui.button('Unhide', { variant: 'ghost', onClick: async () => unhideSession(s) })]
-      : [ui.button('Not for me', { variant: 'ghost', title: 'Hide this session from your calendar', onClick: async () => hideSession(s) }),
-        fam && famCount > 1 ? ui.button(`Hide all “${fam}” (${famCount})`, { variant: 'ghost', onClick: async () => hideFamily(fam, famCount) }) : null];
+      : [fam && famCount > 1 ? ui.button(`Hide all “${fam}” (${famCount})`, { variant: 'ghost', onClick: async () => hideFamily(fam, famCount) }) : null];
     return h('div', { class: 'cc-session-card' },
       h('div', { class: 'cc-session-title' }, s.title),
       h('div', { class: 'cc-session-meta' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
