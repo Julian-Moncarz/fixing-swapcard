@@ -135,15 +135,19 @@
         return el;
       };
       for (const it of byDay(items, day.key)) {
-        col.append(place(h('div', { class: 'cc-grid-item cc-grid-' + it.kind + (it.status && it.status !== 'BOOKED' ? ' cc-grid-pending' : ''), title: `${it.title}\n${ui.range(it.start, it.end)}${it.place ? '\n' + it.place : ''}` },
+        const pending = it.kind === 'meeting' && it.status === 'PENDING';
+        col.append(place(h('div', { class: 'cc-grid-item cc-grid-' + it.kind + (pending ? ' cc-grid-pending' : ''), title: `${it.title}${pending ? ' (pending)' : ''}\n${ui.range(it.start, it.end)}${it.place ? '\n' + it.place : ''}` },
           h('span', { class: 'cc-grid-item-title' }, it.title)), it));
       }
+      const dayItems = byDay(items, day.key);
       for (const s of byDay(slots, day.key)) {
+        // Swapcard counts a slot as free even if you're in a session then; flag those.
+        const clash = dayItems.find((it) => it.start < s.end && it.end > s.start);
         const b = place(h('button', {
           type: 'button',
-          class: 'cc-grid-slot' + (s.id === selectedSlotId ? ' cc-selected' : ''),
-          title: 'Book ' + ui.range(s.start, s.end),
-        }, ui.time(s.start)), s);
+          class: 'cc-grid-slot' + (s.id === selectedSlotId ? ' cc-selected' : '') + (clash ? ' cc-grid-clash' : ''),
+          title: 'Book ' + ui.range(s.start, s.end) + (clash ? `\nOverlaps: ${clash.title}` : ''),
+        }, ui.time(s.start), clash ? h('span', { class: 'cc-clash-note' }, ' · overlaps') : null), s);
         b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); onPick(s); });
         col.append(b);
       }

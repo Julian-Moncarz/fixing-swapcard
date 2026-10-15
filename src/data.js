@@ -40,7 +40,7 @@
           id starts ends
           meeting {
             id status beginsAt endsAt
-            meetingPlace { id name }
+            place { id name }
             participants { id status person { id firstName lastName } }
           }
         }
@@ -208,7 +208,7 @@
               start: new Date(a.meeting.beginsAt || a.starts),
               end: new Date(a.meeting.endsAt || a.ends),
               title: others.length ? 'Meeting with ' + others.map((p) => p.person.firstName).join(', ') : 'Meeting',
-              place: a.meeting.meetingPlace && a.meeting.meetingPlace.name,
+              place: a.meeting.place && a.meeting.place.name,
             };
           }
           return {

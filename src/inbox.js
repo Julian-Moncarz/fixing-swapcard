@@ -103,7 +103,7 @@
   let renderingReqs = false, lastReqSig = '';
   const renderRequests = async (force) => {
     if (!isMessagesPage() || renderingReqs) return;
-    const aside = document.querySelector(sc('aside__Aside'));
+    const aside = CC.layoutColumns().asides[0];
     if (!aside) return;
     const existing = aside.querySelector('.cc-requests');
     if (existing && !force) return;
@@ -133,8 +133,28 @@
     }
   };
 
-  CC.inbox = { refreshCounts, renderRequests };
-  CC.on('dom', () => { injectNav(); retireBell(); renderRequests(false); });
+  // ---------- full profile of the person you're chatting with, in the right column ----------
+  const renderSideProfile = () => {
+    if (!isMessagesPage()) return;
+    const { asides, main } = CC.layoutColumns();
+    const right = asides.find((a) => main && a.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_PRECEDING);
+    if (!right) return;
+    const link = CC.$$('a[href*="/person/"]', right).find((a) => !a.closest('.cc-side-profile'));
+    const m = link && link.getAttribute('href').match(/\/person\/([^/?#]+)/);
+    let box = right.querySelector(':scope > .cc-side-profile');
+    if (!m) { if (box) box.remove(); right.classList.remove('cc-has-side-profile'); return; }
+    const personId = m[1];
+    if (box && box.dataset.ccPerson === personId) return;
+    if (!box) {
+      box = h('div', { class: 'cc-side-profile cc-drawer-body' });
+      right.prepend(box);
+    }
+    right.classList.add('cc-has-side-profile');
+    CC.drawer.renderInto(box, personId);
+  };
+
+  CC.inbox = { refreshCounts, renderRequests, renderSideProfile };
+  CC.on('dom', () => { injectNav(); retireBell(); renderRequests(false); renderSideProfile(); });
   CC.on('route', () => { lastReqSig = ''; refreshCounts(); });
   CC.on('requests-changed', () => { refreshCounts(); setTimeout(() => renderRequests(true), 300); });
   CC.on('drawer-closed', () => { CC.data.invalidate('requests'); refreshCounts(); if (isMessagesPage()) renderRequests(true); });

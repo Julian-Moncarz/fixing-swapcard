@@ -32,14 +32,19 @@
 
 /* ---------- cruft ---------- */
 .cc-hidden-cruft { display: none !important; }
+/* "Online now" carousel on Attendees / Speakers. */
+html.cc-on.cc-page-people [class*="recommendations__Wrapper-sc-"] { display: none !important; }
 
 /* ---------- use the screen on the calendar and inbox ---------- */
-html.cc-wide:not(.cc-embed) [class*="content__Inner-sc-"],
-html.cc-wide:not(.cc-embed) [class*="wrapper__Wrapper-sc-"] { max-width: min(1760px, calc(100vw - 48px)) !important; width: 100% !important; }
-html.cc-wide:not(.cc-embed) [class*="wrapper__Wrapper-sc-"] > [class*="main__Main-sc-"] { flex: 1 1 auto !important; width: auto !important; max-width: none !important; min-width: 0; }
-html.cc-wide:not(.cc-embed) [class*="desktop__Container-sc-"],
-html.cc-wide:not(.cc-embed) [class*="desktop__GridWrapper-sc-"],
-html.cc-wide:not(.cc-embed) [class*="styles__GridContainer-sc-"] { width: 100% !important; max-width: none !important; }
+html.cc-wide [class*="content__Inner-sc-"],
+html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] { max-width: min(1760px, calc(100vw - 48px)) !important; width: 100% !important; }
+html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] > [class*="main__Main-sc-"] { width: auto !important; max-width: none !important; min-width: 0; }
+/* Their layout is a grid with fixed tracks (302px | 928px [| 302px]); let the middle one grow. */
+html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] { grid-template-columns: 302px minmax(0, 1fr) !important; }
+html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"]:has(> [class*="main__Main-sc-"] + [class*="aside__Aside-sc-"]) { grid-template-columns: 302px minmax(0, 1fr) 302px !important; }
+html.cc-wide [class*="desktop__Container-sc-"],
+html.cc-wide [class*="desktop__GridWrapper-sc-"],
+html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-width: none !important; }
 
 /* ---------- shared bits ---------- */
 .cc-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -168,24 +173,47 @@ html.cc-wide:not(.cc-embed) [class*="styles__GridContainer-sc-"] { width: 100% !
 .cc-request-kind { font-weight: 600; font-size: 14px; }
 .cc-request-msg { font-size: 14px; line-height: 1.45; white-space: pre-line; max-height: 140px; overflow: auto; }
 .cc-request-done { font-weight: 600; color: var(--cc-success); }
-.cc-drawer-frame { flex: 1; border: 0; width: 100%; background: var(--cc-bg); }
-
-/* ---------- inside the drawer iframe ---------- */
-html.cc-embed header,
-html.cc-embed [class*="top-bar__"],
-html.cc-embed [class*="topbar__"],
-html.cc-embed [class*="event-navigation__"],
-html.cc-embed [class*="navigation-bar__"],
-html.cc-embed [class*="template__Background-sc-"],
-html.cc-embed .cc-fb-button { display: none !important; }
-html.cc-embed [class*="content__Container-sc-"] { padding-top: 0 !important; top: 0 !important; }
-html.cc-embed [class*="content__Inner-sc-"] { width: 100% !important; max-width: none !important; padding: 0 12px !important; }
-html.cc-embed [class*="wrapper__Wrapper-sc-"] { flex-direction: column !important; width: 100% !important; }
-html.cc-embed [class*="wrapper__Wrapper-sc-"] > [class*="aside__Aside-sc-"],
-html.cc-embed [class*="wrapper__Wrapper-sc-"] > [class*="main__Main-sc-"] { width: 100% !important; max-width: none !important; flex: none !important; position: static !important; }
-.cc-quicklinks { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.cc-drawer-body { flex: 1; overflow-y: auto; font-family: var(--cc-font); color: var(--cc-text); padding-bottom: 32px; }
+.cc-drawer-body > * { margin-left: 20px; margin-right: 20px; }
+.cc-drawer-body > .cc-drawer-request { margin: 0; padding-left: 20px; padding-right: 20px; }
+.cc-p-head { display: flex; gap: 16px; align-items: center; margin-top: 20px; }
+.cc-p-headtext { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.cc-p-name { font-size: 20px; font-weight: 600; line-height: 1.2; }
+.cc-p-sub { font-size: 14px; color: var(--cc-text-muted); }
+.cc-p-status { font-size: 13px; color: var(--cc-success); font-weight: 500; }
+.cc-p-links { margin-top: 4px; }
+.cc-p-actions { margin-top: 16px; }
+.cc-p-slot:empty { display: none; }
+.cc-p-slot { margin-top: 12px; }
+.cc-p-connect { display: flex; flex-direction: column; gap: 8px; }
+.cc-p-field { margin-top: 18px; }
+.cc-p-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--cc-text-muted); margin-bottom: 6px; }
+.cc-p-text { font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.cc-p-book { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md); background: var(--cc-surface-variant); }
+.cc-p-bookdetails { display: flex; flex-direction: column; gap: 8px; }
+.cc-p-bookdetails:empty { display: none; }
+.cc-p-places { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; }
+.cc-p-place { font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.cc-small-text { min-height: 60px; font-size: 13px; }
+.cc-p-loading { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.cc-skel { height: 14px; border-radius: 4px; background: linear-gradient(90deg, #eee, #f6f6f6, #eee); background-size: 200% 100%; animation: cc-shimmer 1.2s infinite; }
+.cc-skel-avatar { width: 72px; height: 72px; border-radius: 50%; }
+.cc-skel-short { width: 60%; }
+@keyframes cc-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ---------- inbox ---------- */
+/* Right column on Messages: wider, with our full profile instead of their small card. */
+/* Swapcard's layout is a grid: 302px | 1fr | 302px. Give the profile column more room. */
+html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"]:has(> [class*="aside__Aside-sc-"].cc-has-side-profile) { grid-template-columns: 302px minmax(0, 1fr) 420px !important; }
+html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] > [class*="aside__Aside-sc-"].cc-has-side-profile {
+  width: auto !important; max-width: none !important; min-width: 0;
+  background: var(--cc-bg); border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md);
+  overflow-y: auto; max-height: calc(100vh - 140px); position: sticky; top: 120px; align-self: flex-start;
+}
+.cc-has-side-profile > :not(.cc-side-profile) { display: none !important; }
+.cc-side-profile { overflow: visible; padding-bottom: 20px; }
+.cc-side-profile > * { margin-left: 16px; margin-right: 16px; }
+.cc-side-profile > .cc-drawer-request { margin: 0; }
 .cc-requests { font-family: var(--cc-font); margin-bottom: 8px; }
 .cc-section-head {
   display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 6px;
@@ -253,6 +281,11 @@ html.cc-embed [class*="wrapper__Wrapper-sc-"] > [class*="main__Main-sc-"] { widt
   background: var(--cc-tertiary-container); color: var(--cc-tertiary);
 }
 .cc-grid-slot:hover, .cc-grid-slot:focus-visible { background: var(--cc-tertiary); color: #fff; outline: none; }
+.cc-grid-slot.cc-grid-clash {
+  background: repeating-linear-gradient(135deg, var(--cc-tertiary-container) 0 6px, #f4f6fa 6px 12px);
+  border-style: dashed;
+}
+.cc-clash-note { font-weight: 400; opacity: .8; }
 .cc-grid-slot.cc-selected { background: var(--cc-primary); color: var(--cc-on-primary); border-color: var(--cc-primary); }
 .cc-legend-swatch.cc-grid-slot, .cc-legend-swatch.cc-grid-meeting, .cc-legend-swatch.cc-grid-session { left: auto; right: auto; }
 

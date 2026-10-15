@@ -21,7 +21,7 @@
       "css": ["src/styles.css"],
       "run_at": "document_idle",
       "world": "MAIN",
-      "all_frames": true
+      "all_frames": false
     }
   ]
 }

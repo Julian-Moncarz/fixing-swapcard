@@ -183,8 +183,18 @@
   CC.query = async (text, variables = {}, { client = 'main', fetchPolicy = 'network-only' } = {}) => {
     const c = CC.clients()[client];
     if (!c) throw new Error('CalmerCard: Apollo client not ready');
-    const r = await c.query({ query: doc(text), variables, fetchPolicy });
-    return r.data;
+    // Swapcard batches requests; a batch of never-seen persisted queries occasionally fails at the
+    // network level. Retry those (never GraphQL errors) a couple of times.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const r = await c.query({ query: doc(text), variables, fetchPolicy });
+        return r.data;
+      } catch (e) {
+        const network = e && e.networkError && !(e.graphQLErrors && e.graphQLErrors.length) && !(e.networkError.result);
+        if (!network || attempt >= 2) throw e;
+        await CC.sleep(300 * (attempt + 1));
+      }
+    }
   };
   CC.mutate = async (text, variables = {}, { client = 'main', refetch = [] } = {}) => {
     const c = CC.clients()[client];
@@ -213,10 +223,27 @@
     }
     return el;
   };
+  // Like el.replaceChildren, but flattens arrays and skips null/false like CC.h does.
+  CC.fill = (el, ...kids) => {
+    el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false && k !== ''));
+    return el;
+  };
   CC.$ = (sel, root = document) => root.querySelector(sel);
   CC.$$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   // Styled-components class prefix selector, e.g. sc('meeting-item__Container').
   CC.sc = (name) => `[class*="${name}-sc-"]`;
+  // The page's 3-column layout columns (left aside, main, right aside). Prefixes like
+  // "wrapper__Wrapper" are reused by unrelated components, so anchor on the page content.
+  CC.layoutColumns = () => {
+    const wrap = document.querySelector(`${CC.sc('content__Inner')} > ${CC.sc('wrapper__Wrapper')}`);
+    if (!wrap) return { wrap: null, asides: [], main: null };
+    const kids = [...wrap.children];
+    return {
+      wrap,
+      asides: kids.filter((k) => k.matches(CC.sc('aside__Aside'))),
+      main: kids.find((k) => k.matches(CC.sc('main__Main'))) || null,
+    };
+  };
 
   // Strip tags from Swapcard's HTML descriptions without executing anything.
   CC.textFromHtml = (html) => {

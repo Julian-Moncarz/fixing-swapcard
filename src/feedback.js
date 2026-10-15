@@ -10,6 +10,15 @@
 
   let modal, shot = null; // shot: { canvas, ops: [] }
 
+  // Clipboard writes can wait forever without focus or permission; never let them block Send.
+  const withTimeout = (p, ms = 1500) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  const copyImage = async (blob) => {
+    try { await withTimeout(navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])); return true; } catch (e) { CC.warn('clipboard', e); return false; }
+  };
+  const copyText = async (t) => {
+    try { await withTimeout(navigator.clipboard.writeText(t)); return true; } catch { return false; }
+  };
+
   const capture = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) throw new Error('Screen capture isn’t available in this browser');
     modal.hidden = true;
@@ -120,13 +129,14 @@
       onClick: async () => {
         const comment = text.value.trim();
         if (!comment && !shot) { ui.toast('Add a comment or a screenshot first', 'error'); return; }
+        let copied = false;
         if (shot) {
           const blob = await new Promise((r) => shot.canvas.toBlob(r, 'image/png'));
-          try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); } catch (e) { CC.warn('clipboard', e); }
+          copied = await copyImage(blob);
         }
         if (!FEEDBACK_FORM_URL) {
-          try { await navigator.clipboard.writeText(comment); } catch {}
-          ui.toast('The feedback form isn’t set up yet. Your comment was copied to the clipboard.', 'error', 7000);
+          const ok = await copyText(comment);
+          ui.toast('The feedback form isn’t set up yet.' + (ok ? ' Your comment was copied to the clipboard.' : ''), 'error', 7000);
           return;
         }
         const u = new URL(FEEDBACK_FORM_URL);
@@ -135,7 +145,7 @@
         u.searchParams.set('version', CC.version);
         u.searchParams.set('screenshot', shot ? 'pasted' : 'none');
         window.open(u.toString(), '_blank', 'noopener');
-        ui.toast(shot ? 'Form opened. Paste the screenshot (⌘V) into the upload field.' : 'Form opened in a new tab.', 'success', 7000);
+        ui.toast(shot && copied ? 'Form opened. Paste the screenshot (⌘V) into the upload field.' : 'Form opened in a new tab.', 'success', 7000);
         text.value = ''; shot = null; shotArea.replaceChildren(); addShot.textContent = '📸 Add screenshot';
         close();
       },

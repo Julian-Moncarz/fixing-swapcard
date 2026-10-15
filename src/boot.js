@@ -10,7 +10,6 @@
   // Boxes we hide, identified by their heading text (class names alone are too generic).
   // Each entry: heading text -> how many levels up the box container is.
   const CRUFT = [
-    { text: 'Online now', up: 2, pages: ['people'] },
     { text: 'Need to meet?', up: 3, pages: ['people', 'exhibitors', 'products'] },
     { text: 'Lead qualification', up: 2, pages: ['person'] },
   ];
