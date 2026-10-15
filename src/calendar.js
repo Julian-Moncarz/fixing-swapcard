@@ -88,6 +88,27 @@
   };
 
   const durMin = (s) => (s.end - s.start) / 60000;
+  // Hovering a session shows when it is: a band across its day column from start to end.
+  let band = null;
+  const showSpan = (el, s) => {
+    const col = el.closest(sc('styles__ColumnContainer'));
+    const wrapper = el.closest(sc('styles__ColumnsWrapper'));
+    if (!col || !wrapper) return;
+    const ppm = pxPerMin(wrapper);
+    band = band || h('div', { class: 'cc-time-band', 'aria-hidden': 'true' });
+    band.style.top = ui.minutes(s.start) * ppm + 'px';
+    band.style.height = Math.max(2, ((s.end - s.start) / 60000) * ppm) + 'px';
+    if (band.parentElement !== col) col.append(band);
+    band.hidden = false;
+  };
+  const hideSpan = () => { if (band) band.hidden = true; };
+  const spanOnHover = (el, s) => {
+    el.addEventListener('mouseenter', () => showSpan(el, s));
+    el.addEventListener('mouseleave', hideSpan);
+    el.addEventListener('focus', () => showSpan(el, s));
+    el.addEventListener('blur', hideSpan);
+  };
+
   // Clicking (or Enter on) a grey session opens it in the side panel.
   const openOnClick = (el, s) => {
     const go = (e) => { e.preventDefault(); e.stopPropagation(); ui.hideHoverCard(); CC.drawer.openSession(s.id); };
@@ -177,7 +198,6 @@
     return h('div', { class: 'cc-session-card' },
       clash && h('div', { class: 'cc-session-clash' }, `Clashes with your ${clash.title.replace(/^Meeting/, 'meeting')} (${ui.range(clash.start, clash.end)})`),
       h('div', { class: 'cc-session-title' }, s.title),
-      h('div', { class: 'cc-session-meta' }, `${ui.day(s.start)} · ${ui.range(s.start, s.end)}`),
       s.place && h('div', { class: 'cc-session-meta' }, '📍 ' + s.place),
       seats && h('div', { class: 'cc-session-meta' + (s.remainingSeats > 0 ? '' : ' cc-danger') }, seats),
       s.tags.length > 0 && h('div', { class: 'cc-chips' }, s.tags.map((t) => h('span', { class: 'cc-chip' }, t))),
@@ -236,6 +256,33 @@
       if (!fits()) box.classList.add('cc-fit-clamp');
     }
   };
+  // ✕ on sessions you're registered for: hover one of your own blocks to leave it (with Undo).
+  const decorateOwnBlocks = (col) => {
+    for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
+      const a = b.querySelector('a[href*="/planning/"]');
+      if (!a || b.querySelector('.cc-own-x')) continue;
+      const id = (a.getAttribute('href').match(/\/planning\/([^/?#]+)/) || [])[1];
+      if (!id) continue;
+      const title = (b.querySelector('[class*="item__Title-sc-"]') || a).textContent.trim();
+      const x = h('button', { type: 'button', class: 'cc-own-x', title: 'Leave this session', 'aria-label': 'Leave ' + title }, '✕');
+      x.addEventListener('click', async (e) => {
+        e.preventDefault(); e.stopPropagation();
+        ui.hideHoverCard();
+        x.disabled = true;
+        try {
+          const nowAttending = await CC.data.toggleSession(id);
+          if (!nowAttending) {
+            ui.toast(`Left “${title}”`, 'info', 6000, { label: 'Undo', fn: () => CC.data.toggleSession(id).catch((err) => ui.toast('Couldn’t undo: ' + err.message, 'error')) });
+          }
+        } catch (err) {
+          x.disabled = false;
+          ui.toast('Couldn’t leave that session: ' + (err.message || err), 'error', 6000);
+        }
+      });
+      b.classList.add('cc-own-session');
+      b.append(x);
+    }
+  };
   const unscaleBlocks = () => {
     for (const b of CC.$$(`${sc('timeline-block__BlockWrapper')}[data-cc-orig-left]`)) {
       b.style.left = b.dataset.ccOrigLeft;
@@ -267,6 +314,7 @@
     const show = pref();
     if (show) cols.forEach(scaleBlocks); else unscaleBlocks();
     cols.forEach(fitBlocks);
+    cols.forEach(decorateOwnBlocks);
     const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'));
     const sig = cols.length + ':' + show;
     if (!force && intact && sig === lastSig) return;
@@ -322,6 +370,7 @@
               xBtn(s));
               ui.hoverCard(el, () => sessionCard(s));
               openOnClick(el, s);
+              spanOnHover(el, s);
               area.append(el);
             }
           } else {
@@ -331,11 +380,11 @@
             }, h('span', { class: 'cc-ghost-count' }, `${cl.items.length} sessions`));
             for (const s of cl.items.sort((a, b) => a.start - b.start)) {
               const row = h('div', { class: classesFor(s, 'cc-ghost-row'), tabindex: '0', role: 'button', 'aria-label': label(s) },
-                h('span', { class: 'cc-ghost-time' }, ui.time(s.start).replace(/\s?(AM|PM)$/i, '')),
                 h('span', { class: 'cc-ghost-rowtitle' }, s.title),
                 xBtn(s));
               ui.hoverCard(row, () => sessionCard(s));
               openOnClick(row, s);
+              spanOnHover(row, s);
               group.append(row);
             }
             area.append(group);

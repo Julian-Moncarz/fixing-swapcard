@@ -24,7 +24,10 @@
   };
   const updateBadge = () => {
     const n = counts.requests + counts.unread;
-    CC.$$('.cc-nav-badge').forEach((b) => { b.textContent = n > 99 ? '99+' : String(n); b.hidden = !n; });
+    CC.$$('.cc-nav-badge').forEach((b) => {
+      b.textContent = n > 9 ? '9+' : String(n);
+      b.hidden = !n;
+    });
   };
 
   // ---------- nav item ----------
@@ -38,13 +41,14 @@
     item.href = inboxPath();
     // Replace the label text but keep their styling wrapper.
     const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
-    let t, done = false;
+    let t, label = null;
     while ((t = walker.nextNode())) {
       if (!t.nodeValue.trim()) continue;
-      t.nodeValue = done ? '' : 'Inbox';
-      done = true;
+      t.nodeValue = label ? '' : 'Inbox';
+      label = label || t.parentElement;
     }
-    item.append(h('span', { class: 'cc-nav-badge', hidden: true }, '0'));
+    // Right after the word, not after the link's padding.
+    (label || item).append(h('span', { class: 'cc-nav-badge', hidden: true }, '0'));
     item.addEventListener('click', (e) => {
       if (e.metaKey || e.ctrlKey) return;
       e.preventDefault();

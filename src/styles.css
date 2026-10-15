@@ -147,6 +147,26 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 }
 .cc-session-hide { margin-top: 2px; }
 .cc-session-hide .cc-btn { padding: 6px 10px; font-size: 12px; }
+/* Hovering a session: a band across its day showing when it is. */
+.cc-time-band {
+  position: absolute; left: 0; right: 0; z-index: 2; pointer-events: none;
+  background: rgba(100, 118, 147, .10); border-top: 1px solid var(--cc-tertiary); border-bottom: 1px solid var(--cc-tertiary);
+}
+.cc-time-band[hidden] { display: none; }
+/* ✕ to leave a session you're registered for; it replaces Swapcard's calendar icon on hover. */
+.cc-own-session { position: relative; }
+.cc-own-x {
+  position: absolute; top: 4px; right: 4px; z-index: 3; width: 20px; height: 20px; padding: 0; border-radius: 50%;
+  border: 0; background: #fff; color: #888; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer;
+  box-shadow: 0 0 0 1px #ccc; opacity: 0;
+}
+.cc-own-session:hover .cc-own-x, .cc-own-x:focus-visible { opacity: 1; }
+.cc-own-session:hover [class*="item__ActionIcon-sc-"] { visibility: hidden; }
+.cc-own-x:hover { background: var(--cc-danger-container); color: var(--cc-danger); box-shadow: 0 0 0 1px var(--cc-danger); }
+/* The schedule sidebar's colour legend: people know what green and orange mean. */
+html.cc-page-my-schedule [class*="captions__Wrapper-sc-"],
+html.cc-page-my-schedule [class*="captions__Wrapper-sc-"] + [class*="divider__"] { display: none !important; }
+
 /* now line */
 .cc-now-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--cc-notification); z-index: 3; pointer-events: none; }
 .cc-now-line::before { content: ''; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--cc-notification); }
@@ -190,9 +210,9 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 .cc-nav-first { order: -1; }
 .cc-nav-inbox { position: relative; }
 .cc-nav-badge {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;
-  margin-left: 6px; border-radius: 9px; background: var(--cc-notification); color: #fff;
-  font: 600 11px/1 var(--cc-font); vertical-align: middle;
+  display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0;
+  margin-left: 4px; border-radius: 50%; background: var(--cc-notification); color: #fff;
+  font: 600 10px/1 var(--cc-font); vertical-align: 1px; letter-spacing: -.02em;
 }
 .cc-nav-badge[hidden] { display: none; }
 
