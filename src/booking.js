@@ -141,7 +141,9 @@
   };
 
   // ---- booking panel used in the profile drawer (no Swapcard modal there) ----
-  const panel = (person, onClose) => {
+  // opts.onSend(slot, placeId, message) replaces the default "send a meeting request" (used for
+  // rescheduling); opts.sendLabel names the button.
+  const panel = (person, onClose, opts = {}) => {
     const box = h('div', { class: 'cc-p-book' }, h('div', { class: 'cc-muted cc-small' }, 'Finding times you’re both free…'));
     const name = person.firstName || 'them';
     (async () => {
@@ -162,10 +164,15 @@
             input.addEventListener('change', () => { chosen.placeId = pl.id; });
             return h('label', { class: 'cc-p-place' }, input, ' ', [pl.group, pl.name].filter(Boolean).join(' · '));
           }));
-          const send = ui.button(`Send meeting request`, {
+          const send = ui.button(opts.sendLabel || 'Send meeting request', {
             variant: 'primary',
             onClick: async () => {
               if (!chosen.placeId) { ui.toast('Pick a place first', 'error'); return; }
+              if (opts.onSend) {
+                await opts.onSend(slot, chosen.placeId, msg.value.trim());
+                box.replaceChildren(h('div', { class: 'cc-request-done' }, `Moved to ${ui.day(slot.start)} ${ui.range(slot.start, slot.end)} ✓`));
+                return;
+              }
               await CC.data.createMeeting({ personIds: [person.id], slotId: slot.id, placeId: chosen.placeId, message: msg.value.trim() });
               box.replaceChildren(h('div', { class: 'cc-request-done' }, `Meeting request sent to ${name} for ${ui.day(slot.start)} ${ui.range(slot.start, slot.end)} ✓`));
               ui.toast('Meeting request sent', 'success');

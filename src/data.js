@@ -100,6 +100,16 @@
       }
     }`,
 
+    meeting: `query CalmerCardMeeting($id: ID!) {
+      meeting: Core_meeting(id: $id) {
+        id status description
+        beginsAt(format: ISO8601) endsAt(format: ISO8601)
+        place { id name }
+        userParticipant { id status isOrganizer }
+        participants { id status isOrganizer person { id firstName lastName photoUrl jobTitle organization } }
+      }
+    }`,
+
     requests: `query CalmerCardRequests {
       reqs: Core_requests(cursor: { first: 100 }, filters: { shouldRequestStatusIn: PENDING }) {
         totalCount
@@ -156,6 +166,15 @@
       Core_sendConnectionRequest(data: { userId: $userId, eventId: $eventId, communityId: $communityId, message: $message }) {
         id eventPerson { id userInfo { id connectionStatus hasSentRequest } }
       }
+    }`,
+    cancelMeeting: `mutation CalmerCardCancelMeeting($id: ID!) {
+      Core_cancelMeetingV2(meetingId: $id) { id }
+    }`,
+    reschedule: `mutation CalmerCardReschedule($input: Core_RescheduleMeetingInput!) {
+      r: Core_rescheduleMeeting(input: $input) { errors { message } meeting { id status } }
+    }`,
+    participation: `mutation CalmerCardParticipation($input: Core_UpdateMeetingParticipationInput!) {
+      u: Core_updateMeetingParticipation(input: $input) { errors { message } meeting { id status } }
     }`,
     createMeeting: `mutation CalmerCardCreateMeeting($input: Core_CreateMeetingInput!) {
       Core_createMeeting(input: $input) { errors { message } meeting { id } }
@@ -323,6 +342,25 @@
       };
     },
 
+    async meeting(id) {
+      const ev = await data.event();
+      const { meeting: m } = await CC.query(Q.meeting, { id });
+      const me = m.userParticipant || {};
+      const others = (m.participants || []).filter((p) => p.person && p.person.id !== ev.me.id);
+      return {
+        id: m.id,
+        status: m.status, // PENDING | CONFIRMED | DECLINED | CANCELED …
+        description: m.description,
+        start: new Date(m.beginsAt),
+        end: new Date(m.endsAt),
+        place: m.place && m.place.name,
+        myParticipantId: me.id,
+        myStatus: me.status,
+        iOrganized: !!me.isOrganizer,
+        others: others.map((p) => ({ ...p.person, participantStatus: p.status, isOrganizer: p.isOrganizer })),
+      };
+    },
+
     // Pending requests for the current event (meeting + connection, received + sent).
     async requests() {
       const ev = await data.event();
@@ -396,6 +434,29 @@
       invalidate('person:');
       CC.emit('requests-changed');
       return r;
+    },
+    async cancelMeeting(id) {
+      const r = await CC.mutate(M.cancelMeeting, { id }, { refetch: SWAPCARD_REFETCH.schedule.concat(SWAPCARD_REFETCH.requests) });
+      invalidate('agenda:'); invalidate('requests');
+      CC.emit('schedule-changed');
+      return r;
+    },
+    async rescheduleMeeting({ meetingId, slotId, placeId, description }) {
+      const r = await CC.mutate(M.reschedule, { input: { meetingId, slotId, placeId, description: description || '' } }, { refetch: SWAPCARD_REFETCH.schedule });
+      const errs = r.r && r.r.errors;
+      if (errs && errs.length) throw new Error(errs.map((e) => e.message).join('; '));
+      invalidate('agenda:');
+      CC.emit('schedule-changed');
+      return r.r.meeting;
+    },
+    // status: 'GOING' | 'NOT_GOING' (how a participant accepts or declines a meeting).
+    async setParticipation(meetingParticipantId, status) {
+      const r = await CC.mutate(M.participation, { input: { meetingParticipantId, status } }, { refetch: SWAPCARD_REFETCH.schedule.concat(SWAPCARD_REFETCH.requests) });
+      const errs = r.u && r.u.errors;
+      if (errs && errs.length) throw new Error(errs.map((e) => e.message).join('; '));
+      invalidate('agenda:'); invalidate('requests');
+      CC.emit('schedule-changed');
+      return r.u.meeting;
     },
     // Builds the same input Swapcard's own Meet modal sends.
     meetingInput({ eventId, personIds, slotId, placeId, message, description }) {

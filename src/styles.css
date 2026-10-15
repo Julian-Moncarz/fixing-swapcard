@@ -302,6 +302,20 @@ html.cc-on a.cc-nav-active { box-shadow: inset 0 -2px 0 var(--cc-text); }
 .cc-p-places { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; }
 .cc-p-place { font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .cc-small-text { min-height: 60px; font-size: 13px; }
+.cc-mt-card {
+  margin-top: 20px; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px;
+  border: 1px solid var(--cc-outline); border-left: 4px solid var(--cc-success); border-radius: var(--cc-radius-md);
+}
+.cc-mt-card.cc-mt-incoming, .cc-mt-card.cc-mt-pending { border-left-color: var(--cc-warning); }
+.cc-mt-card.cc-mt-gone { border-left-color: var(--cc-on-disabled); opacity: .8; }
+.cc-mt-status { font-size: 16px; font-weight: 600; }
+.cc-mt-when { font-size: 14px; }
+.cc-mt-where { font-size: 14px; color: var(--cc-text-muted); }
+.cc-mt-card .cc-row { margin-top: 6px; }
+.cc-mt-last { font-size: 14px; line-height: 1.45; color: var(--cc-text); }
+.cc-mt-open { display: inline-block; margin-top: 6px; font: 500 13px var(--cc-font); color: var(--cc-focus); text-decoration: none; }
+.cc-mt-open:hover { text-decoration: underline; }
+.cc-mt-profile > * { margin-left: 0 !important; margin-right: 0 !important; }
 .cc-drawer-titlewrap { flex-wrap: nowrap; min-width: 0; gap: 4px; }
 .cc-s-head { display: flex; flex-direction: column; gap: 4px; margin-top: 20px; }
 .cc-s-desc a { color: var(--cc-focus); }

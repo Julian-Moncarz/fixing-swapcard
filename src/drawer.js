@@ -9,15 +9,18 @@
 
   const PERSON_RE = /^\/event\/([^/]+)\/person\/([^/?#]+)/;
   const SESSION_RE = /^\/event\/([^/]+)\/planning\/([^/?#]+)/;
+  const MEETING_RE = /^\/event\/([^/]+)\/meeting\/([^/?#]+)/;
   // A Swapcard path -> what the panel should show, or null.
   const viewFor = (path) => {
     let m = path.match(PERSON_RE);
     if (m) return { kind: 'person', id: m[2] };
     m = path.match(SESSION_RE);
     if (m) return { kind: 'session', id: m[2] };
+    m = path.match(MEETING_RE);
+    if (m) return { kind: 'meeting', id: m[2] };
     return null;
   };
-  const pathFor = (v) => `/event/${CC.route().slug}/${v.kind === 'session' ? 'planning' : 'person'}/${v.id}`;
+  const pathFor = (v) => `/event/${CC.route().slug}/${{ session: 'planning', meeting: 'meeting' }[v.kind] || 'person'}/${v.id}`;
   const HIDDEN_FIELDS = /visibility in attendee data sheet/i;
 
   let root, body, titleEl, backBtn, current = null, stack = [], openToken = 0;
@@ -243,6 +246,93 @@
           : h('div', { class: 'cc-muted cc-small' }, 'Nobody yet.')));
   };
 
+  // ---------- meeting rendering ----------
+  // Top: the meeting and what you can do about it (depends on its state). Then the latest message
+  // with a link to the conversation, then their profile. The calendar behind is your day context.
+  const confirmButton = (label, confirmLabel, fn, variant = 'secondary') => {
+    let armed = false;
+    const b = ui.button(label, {
+      variant,
+      onClick: async () => {
+        if (!armed) { armed = true; b.textContent = confirmLabel; setTimeout(() => { if (armed && b.isConnected) { armed = false; b.textContent = label; } }, 4000); return; }
+        await fn();
+      },
+    });
+    return b;
+  };
+
+  const renderMeeting = async (m, ctx) => {
+    const other = m.others[0] || {};
+    const first = other.firstName || 'them';
+    const name = [other.firstName, other.lastName].filter(Boolean).join(' ');
+    titleEl.textContent = m.others.length > 1 ? 'Meeting' : `Meeting with ${name}`;
+    const pending = m.status === 'PENDING' || m.myStatus === 'PENDING';
+    const gone = /CANCEL|DECLIN/.test(m.status || '') || /DECLIN|NOT_GOING/.test(m.myStatus || '');
+    const incoming = pending && !m.iOrganized;
+    const req = (ctx.reqs || []).find((r) => r.meeting && r.meeting.id === m.id);
+    const status = h('div', { class: 'cc-mt-status' });
+    const actions = h('div', { class: 'cc-row' });
+    const pickSlot = h('div', { class: 'cc-p-slot' });
+    const reopen = () => show({ kind: 'meeting', id: m.id }, { push: false });
+    if (gone) {
+      status.textContent = 'This meeting was cancelled or declined.';
+    } else if (incoming) {
+      status.textContent = `${first} wants to meet`;
+      actions.append(
+        ui.button('Accept', { variant: 'primary', onClick: async () => { req ? await CC.data.acceptRequest(req.id) : await CC.data.setParticipation(m.myParticipantId, 'GOING'); ui.toast('Accepted', 'success'); reopen(); } }),
+        ui.button('Decline', { onClick: async () => { req ? await CC.data.declineRequest(req.id) : await CC.data.setParticipation(m.myParticipantId, 'NOT_GOING'); ui.toast('Declined'); reopen(); } }));
+    } else if (pending) {
+      status.textContent = `Waiting for ${first} to accept`;
+      actions.append(confirmButton('Cancel request', 'Click again to cancel', async () => { await CC.data.cancelMeeting(m.id); ui.toast('Request cancelled'); reopen(); }));
+    } else {
+      status.textContent = 'Confirmed ✓';
+      actions.append(
+        ui.button('Reschedule', {
+          onClick: async () => {
+            pickSlot.replaceChildren(CC.booking.panel({ id: other.id, firstName: first }, () => pickSlot.replaceChildren(), {
+              sendLabel: 'Move meeting here',
+              onSend: async (slot, placeId, message) => { await CC.data.rescheduleMeeting({ meetingId: m.id, slotId: slot.id, placeId, description: message }); ui.toast('Meeting moved', 'success'); setTimeout(reopen, 800); },
+            }));
+          },
+        }),
+        m.iOrganized
+          ? confirmButton('Cancel meeting', 'Click again to cancel', async () => { await CC.data.cancelMeeting(m.id); ui.toast('Meeting cancelled'); reopen(); })
+          : confirmButton('Decline meeting', 'Click again to decline', async () => { await CC.data.setParticipation(m.myParticipantId, 'NOT_GOING'); ui.toast('Meeting declined'); reopen(); }));
+    }
+    const chat = (ctx.chats || []).find((c) => c.personId === other.id && !c.isGroup);
+    const openChat = chat && h('a', { class: 'cc-mt-open', href: `/event/${CC.route().slug}/messages/channel/${chat.channelId}?chatUserId=${encodeURIComponent((ctx.me || {}).userId || '')}` }, 'Open conversation →');
+    if (openChat) openChat.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey) return;
+      e.preventDefault();
+      const href = openChat.getAttribute('href');
+      close();
+      const router = window.next && window.next.router;
+      router ? router.push(href) : location.assign(href);
+    });
+    const profileBox = h('div', { class: 'cc-mt-profile' });
+    CC.fill(body,
+      h('div', { class: 'cc-mt-card' + (incoming ? ' cc-mt-incoming' : pending ? ' cc-mt-pending' : gone ? ' cc-mt-gone' : '') },
+        status,
+        h('div', { class: 'cc-mt-when' }, `${ui.day(m.start)} · ${ui.range(m.start, m.end)}`),
+        m.place && h('div', { class: 'cc-mt-where' }, '📍 ' + m.place),
+        m.description && h('div', { class: 'cc-request-msg' }, m.description),
+        actions.children.length ? actions : null,
+        pickSlot),
+      h('section', { class: 'cc-p-field cc-mt-chat' },
+        h('div', { class: 'cc-p-label' }, 'Messages'),
+        chat && chat.last
+          ? h('div', { class: 'cc-mt-last' }, (chat.last.fromMe ? 'You: ' : `${first}: `) + chat.last.text.replace(/\s+/g, ' ').slice(0, 200))
+          : h('div', { class: 'cc-muted cc-small' }, 'No messages yet.'),
+        openChat),
+      profileBox);
+    if (other.id) {
+      try {
+        const p = await CC.data.person(other.id);
+        if (current && current.kind === 'meeting' && current.id === m.id) renderProfile(p, null, profileBox, { agenda: (ctx.agenda || []).filter((a) => a.id !== m.id), hideBook: incoming });
+      } catch (e) { CC.warn('meeting profile', e); }
+    }
+  };
+
   // ---------- showing a view, with history ----------
   const skeleton = () => h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' }));
 
@@ -264,6 +354,13 @@
         const s = await CC.data.session(view.id);
         if (token !== openToken) return;
         renderSession(s);
+      } else if (view.kind === 'meeting') {
+        CC.data.invalidate('agenda:'); CC.data.invalidate('requests'); CC.data.invalidate('chats');
+        const [m, reqs, chats, agenda, ev] = await Promise.all([
+          CC.data.meeting(view.id), CC.data.requests().catch(() => []), CC.data.chats().catch(() => []),
+          CC.data.agenda().catch(() => []), CC.data.event()]);
+        if (token !== openToken) return;
+        await renderMeeting(m, { reqs, chats, agenda, me: ev.me });
       } else {
         const [p, reqs, agenda] = await Promise.all([CC.data.person(view.id), view.request ? Promise.resolve(null) : CC.data.requests().catch(() => []), CC.data.agenda().catch(() => [])]);
         if (token !== openToken) return;
@@ -273,7 +370,7 @@
     } catch (e) {
       if (token !== openToken) return;
       CC.warn('drawer', e);
-      titleEl.textContent = view.kind === 'session' ? 'Session' : 'Profile';
+      titleEl.textContent = { session: 'Session', meeting: 'Meeting' }[view.kind] || 'Profile';
       body.replaceChildren(h('div', { class: 'cc-empty' }, 'Couldn’t load this. Use “Full page” instead.'));
     }
   };
