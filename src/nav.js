@@ -78,8 +78,22 @@
   };
   window.addEventListener('resize', placeNav);
 
+  // Highlight the tab for the page you're on.
+  const markActive = () => {
+    const sched = scheduleLink();
+    const list = sched && (sched.closest('li') || sched).parentElement;
+    if (!list) return;
+    const here = location.pathname;
+    for (const a of list.querySelectorAll('a[href]')) {
+      let path = '';
+      try { path = new URL(a.href, location.href).pathname; } catch {}
+      const active = !!path && path !== `/event/${CC.route().slug}` && (here === path || here.startsWith(path + '/'));
+      a.classList.toggle('cc-nav-active', active);
+    }
+  };
+
   CC.nav = { scheduleLink, schedulePath };
-  CC.on('dom', () => { tidyNav(); hideIcons(); placeNav(); });
+  CC.on('dom', () => { tidyNav(); hideIcons(); placeNav(); markActive(); });
   CC.on('route', redirect);
   CC.on('ready', redirect);
 })();

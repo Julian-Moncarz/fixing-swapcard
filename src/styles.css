@@ -247,6 +247,8 @@ html.cc-on [class*="content__Container-sc-"] { top: 80px !important; }
 /* The calendar's height was sized for the old two-row header; give it the freed space. */
 html.cc-on.cc-page-my-schedule [class*="desktop__Container-sc-"] { height: calc(100vh - 180px) !important; }
 .cc-nav-first { order: -1; }
+html.cc-on a.cc-nav-active, html.cc-on a.cc-nav-active * { color: var(--cc-text) !important; }
+html.cc-on a.cc-nav-active { box-shadow: inset 0 -2px 0 var(--cc-text); }
 .cc-nav-inbox { position: relative; }
 .cc-nav-badge {
   display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; padding: 0;

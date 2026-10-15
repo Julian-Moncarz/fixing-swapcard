@@ -249,13 +249,17 @@
     }
     let box = right.querySelector(':scope > .cc-side-profile');
     if (!personId) { if (box) box.remove(); right.classList.remove('cc-has-side-profile'); return; }
-    if (box && box.dataset.ccPerson === personId && !force) return;
+    // If they've already proposed a meeting, the card in the middle is how you answer it.
+    const entry = state.entries.find((e) => e.personId === personId);
+    const hideBook = !!(entry && entry.request && entry.request.incoming && entry.request.isMeeting);
+    if (box && box.dataset.ccPerson === personId && box.dataset.ccHideBook === String(hideBook) && !force) return;
     if (!box) {
       box = h('div', { class: 'cc-side-profile cc-drawer-body' });
       right.prepend(box);
     }
     right.classList.add('cc-has-side-profile');
-    CC.drawer.renderInto(box, personId, { withRequest: false });
+    box.dataset.ccHideBook = String(hideBook);
+    CC.drawer.renderInto(box, personId, { withRequest: false, hideBook });
   };
 
   // ---------- data + mounting ----------

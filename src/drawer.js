@@ -133,7 +133,8 @@
   };
 
   // Renders a profile into `target` (the drawer body by default).
-  const renderProfile = (p, req, target = body) => {
+  // opts.hideBook: they've already proposed a meeting, so don't offer to book another.
+  const renderProfile = (p, req, target = body, opts = {}) => {
     const name = [p.firstName, p.lastName].filter(Boolean).join(' ');
     if (target === body) titleEl.textContent = name;
     const links = (p.socialNetworks || []).map(linkFor).filter(Boolean);
@@ -143,7 +144,7 @@
     const panelSlot = h('div', { class: 'cc-p-slot' });
     const isSelf = p.userInfo && p.userInfo.isSelf;
     const connected = p.userInfo && /^CONNECTED/.test(p.userInfo.connectionStatus || '');
-    if (!isSelf && p.canMeet) {
+    if (!isSelf && p.canMeet && !opts.hideBook) {
       actions.append(ui.button('Book a 1:1', {
         variant: 'primary',
         onClick: async () => { panelSlot.replaceChildren(CC.booking.panel(p, () => panelSlot.replaceChildren())); },
@@ -312,13 +313,13 @@
 
   // Render a profile into any element (used by the inbox's right column).
   // withRequest: false when the page already shows the request (the inbox pins its own card).
-  const renderInto = async (el, personId, { withRequest = true } = {}) => {
+  const renderInto = async (el, personId, { withRequest = true, hideBook = false } = {}) => {
     el.dataset.ccPerson = personId;
     CC.fill(el, h('div', { class: 'cc-p-loading' }, h('div', { class: 'cc-skel cc-skel-avatar' }), h('div', { class: 'cc-skel' }), h('div', { class: 'cc-skel cc-skel-short' })));
     try {
       const [p, reqs] = await Promise.all([CC.data.person(personId), CC.data.requests().catch(() => [])]);
       if (el.dataset.ccPerson !== personId) return;
-      renderProfile(p, withRequest ? (reqs || []).find((r) => r.personId === personId) || null : null, el);
+      renderProfile(p, withRequest ? (reqs || []).find((r) => r.personId === personId) || null : null, el, { hideBook });
     } catch (e) {
       CC.warn('profile', e);
       CC.fill(el, h('div', { class: 'cc-empty' }, 'Couldn’t load this profile.'));
