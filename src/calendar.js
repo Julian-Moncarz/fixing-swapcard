@@ -403,15 +403,21 @@
       h('div', { class: 'cc-cal-controls' }));
   };
 
-  // Default My Schedule to the calendar appearance (once per visit).
+  // The schedule is always the calendar: switch to it if needed, and hide the List/Calendar switch.
   let switched = false;
   const preferCalendar = () => {
     const r = CC.route();
-    if (r.page !== 'my-schedule' || switched) return;
+    if (r.page !== 'my-schedule') return;
+    const calBtn = CC.$$('button').find((b) => b.textContent.trim() === 'Calendar');
+    const listBtn = CC.$$('button').find((b) => b.textContent.trim() === 'List');
+    if (calBtn && listBtn) {
+      const sw = calBtn.closest(sc('multi-switch__Container')) || (calBtn.parentElement === listBtn.parentElement ? calBtn.parentElement : null);
+      if (sw && sw.contains(listBtn)) sw.classList.add('cc-hidden-cruft');
+    }
+    if (switched) return;
     const params = new URLSearchParams(location.search);
     if (params.get('appearance') === 'calendar' || (params.get('view') && params.get('view') !== 'schedule')) { switched = true; return; }
-    const btn = CC.$$('button').find((b) => b.textContent.trim() === 'Calendar');
-    if (btn) { switched = true; btn.click(); }
+    if (calBtn) { switched = true; calBtn.click(); }
   };
 
   CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf };

@@ -6,8 +6,9 @@ A Chrome extension that makes Swapcard's attendee web app calmer to use. It work
 
 | Where | Change |
 |---|---|
-| **My Schedule** | Opens as the calendar. Sessions you're not attending show in light grey at their times (busy times collapse into a list). Hover for details, one click to add. Toggle under *Appearance*. Uses the full screen width. |
-| **Inbox** (new nav item, replaces the bell) | Swapcard's Messages page with pending meeting and connection requests on top (Accept / Decline inline), chats below, and the full profile of whoever you're chatting with on the right. Badge counts incoming requests plus unread chats. |
+| **Navigation** | One **Schedule** tab (the calendar) replaces Home, My Schedule and Agenda; those URLs redirect to it. Schedule and Inbox come first. The bell and chat icons are gone (Inbox covers both). |
+| **Schedule** | Always the calendar (no list view). Sessions you're not attending show in light grey at their times (busy times collapse into a list). Hover for details, one click to add. Toggle under *Appearance*. Uses the full screen width. |
+| **Inbox** (new nav item) | Swapcard's Messages page with pending meeting and connection requests on top (Accept / Decline inline), chats below, and the full profile of whoever you're chatting with on the right. Badge counts incoming requests plus unread chats. |
 | **Any person link** | Opens a profile drawer instead of navigating away: LinkedIn at the top, full bio, goals, "how I can help", interests. Accept/Decline a pending request, Connect with a note, or **Book a 1:1** on a calendar of your day with mutual free slots highlighted. |
 | **Swapcard's Meet modal** | The "Date & time" step gets the same calendar. Picking a slot clicks Swapcard's matching slot, so the rest of their flow is unchanged. |
 | **Cruft** | Hides the "Online now" carousel, the "Need to meet? / +N requests sent" promo, and the lead-qualification box. |
@@ -38,6 +39,7 @@ See [CATALOG.md](CATALOG.md) for the full map of Swapcard's screens, components 
 | `src/core.js` | Hooks: webpack require, gql tag, Apollo clients, theme, route and DOM events, helpers |
 | `src/data.js` | Queries and mutations |
 | `src/ui.js` | Formatting, toasts, hover card, day grid |
+| `src/nav.js` | One Schedule tab, redirects, hides the bell and chat icons |
 | `src/calendar.js` | Grey sessions in My Schedule's calendar |
 | `src/drawer.js` | Profile drawer and link interception |
 | `src/inbox.js` | Inbox nav item, requests section, profile column |

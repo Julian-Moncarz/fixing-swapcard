@@ -187,6 +187,7 @@ html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-
 }
 
 /* ---------- nav ---------- */
+.cc-nav-first { order: -1; }
 .cc-nav-inbox { position: relative; }
 .cc-nav-badge {
   display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px;

@@ -30,7 +30,7 @@
   // ---------- nav item ----------
   const injectNav = () => {
     if (!CC.route().slug || document.querySelector('.cc-nav-inbox')) return;
-    const sched = CC.$$('a').find((a) => a.textContent.trim() === 'My Schedule' && a.getBoundingClientRect().top < 120);
+    const sched = CC.nav && CC.nav.scheduleLink();
     if (!sched) return;
     const item = sched.cloneNode(true);
     item.classList.add('cc-nav-inbox');
@@ -38,7 +38,12 @@
     item.href = inboxPath();
     // Replace the label text but keep their styling wrapper.
     const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT);
-    let t; while ((t = walker.nextNode())) { if (t.nodeValue.trim() === 'My Schedule') t.nodeValue = 'Inbox'; }
+    let t, done = false;
+    while ((t = walker.nextNode())) {
+      if (!t.nodeValue.trim()) continue;
+      t.nodeValue = done ? '' : 'Inbox';
+      done = true;
+    }
     item.append(h('span', { class: 'cc-nav-badge', hidden: true }, '0'));
     item.addEventListener('click', (e) => {
       if (e.metaKey || e.ctrlKey) return;
@@ -46,10 +51,10 @@
       const router = window.next && window.next.router;
       router ? router.push(inboxPath()) : location.assign(inboxPath());
     });
-    // Put Inbox first among the useful items: right before My Schedule.
+    // Right after Schedule, the other main view.
     const slot = sched.closest('li') || sched;
     const wrapped = slot === sched ? item : (() => { const li = slot.cloneNode(false); li.append(item); return li; })();
-    slot.parentElement.insertBefore(wrapped, slot);
+    slot.parentElement.insertBefore(wrapped, slot.nextSibling);
     updateBadge();
   };
 

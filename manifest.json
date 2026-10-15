@@ -3,14 +3,19 @@
   "name": "Calmer Card",
   "version": "0.1.0",
   "description": "A calmer Swapcard: one calendar, one inbox, profiles that open in place.",
-  "host_permissions": ["https://app.swapcard.com/*"],
+  "host_permissions": [
+    "https://app.swapcard.com/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://app.swapcard.com/*"],
+      "matches": [
+        "https://app.swapcard.com/*"
+      ],
       "js": [
         "src/core.js",
         "src/data.js",
         "src/ui.js",
+        "src/nav.js",
         "src/calendar.js",
         "src/drawer.js",
         "src/inbox.js",
@@ -18,7 +23,9 @@
         "src/feedback.js",
         "src/boot.js"
       ],
-      "css": ["src/styles.css"],
+      "css": [
+        "src/styles.css"
+      ],
       "run_at": "document_idle",
       "world": "MAIN",
       "all_frames": false
