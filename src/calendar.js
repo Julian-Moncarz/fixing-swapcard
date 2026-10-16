@@ -535,7 +535,7 @@
     const tz = h('button', { type: 'button', class: 'cc-view-link' }, 'Time zone and format…');
     tz.addEventListener('click', () => {
       pop.hidden = true;
-      const theirs = CC.$$('button, a, div').find((e) => e.textContent.trim() === 'Time zone and format' && e.closest(sc('aside__Aside')));
+      const theirs = CC.$$('button, a, div').find((e) => e.textContent.trim() === 'Time zone and format' && e.closest(`[data-cc-col="aside"], ${sc('aside__Aside')}`));
       const target = theirs && (theirs.closest('button, a, [role="button"]') || theirs);
       if (target) target.click(); else ui.toast('Couldn’t find Swapcard’s time zone settings on this page.', 'error');
     });
@@ -566,7 +566,12 @@
     if (calBtn) { switched = true; calBtn.click(); }
   };
 
-  CC.calendar = { render, sessionCard, hideSession, unhideSession, isHidden, familyOf, setDayFocus };
+  const columns = () => {
+    const wrapper = document.querySelector(sc('styles__ColumnsWrapper'));
+    return wrapper ? CC.$$(sc('styles__ColumnContainer'), wrapper) : [];
+  };
+
+  CC.calendar = { columns, render, sessionCard, hideSession, unhideSession, isHidden, familyOf, setDayFocus };
   CC.on('dom', () => { preferCalendar(); render(false); });
   CC.on('route', () => {
     switched = false; lastSig = ''; dayFocus = null; scrolledToMorning = false;

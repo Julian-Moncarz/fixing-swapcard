@@ -61,7 +61,7 @@ See [CATALOG.md](CATALOG.md) for the full map of Swapcard's screens, components 
 
 ## Feedback
 
-The "Give feedback on this UI" button opens a pre-filled GitHub issue on this repo (comment, page and version; a marked-up screenshot is copied to the clipboard to paste in). It also links here for anyone who would rather send a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The "Give feedback on this UI" button opens a pre-filled GitHub issue on this repo (comment, page, version and any Swapcard hooks that found nothing; a marked-up screenshot is copied to the clipboard to paste in). It also links here for anyone who would rather send a pull request. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Development
 

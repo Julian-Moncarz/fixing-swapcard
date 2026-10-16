@@ -2,7 +2,7 @@
 
 Explored on 2026-10-15 against **EA Global: New York City 2026** (`app.swapcard.com/event/ea-global-new-york-city-2026`), logged in as an attendee. Swapcard deploys often, so treat class-name hashes and persisted-query hashes as perishable; names and shapes are more stable.
 
-Contents: 1. Architecture and hooks · 2. Screens · 3. Reusable components · 4. Data operations · 5. Cruft list · 6. Reuse decisions.
+Contents: 1. Architecture and hooks · 2. Screens · 3. Reusable components · 4. Data operations · 5. Cruft list · 6. Reuse decisions · 7. DOM hook audit.
 
 ---
 
@@ -107,3 +107,36 @@ Persisted-query hashes as of 2026-10-15 (perishable). We prefer our own query te
 | Book with mutual availability | Meet modal already computes mutual slots | **Mod step 2 only**: replace chips with a day calendar (your meetings + sessions as context, mutual slots highlighted); selecting calls their own slot click so the rest of their modal is untouched |
 | Cruft removal | n/a | CSS + small DOM hides |
 | Feedback | none | Ours: floating button, capture + markup, send to Tally |
+
+## 7. DOM hook audit (2026-10-16)
+
+On October 16, 2026 Swapcard started moving parts of the app from styled-components to atomic CSS, which removes the readable `name__Part-sc-` classes. Every hook below fails safe (that feature goes back to stock Swapcard). Rules we now follow: find a Swapcard element in **one** place in JS, mark it with our own `data-cc-*` attribute (React leaves attributes it doesn't own alone, unlike a class it re-renders), and point CSS and other code at the mark. Prefer hrefs, ARIA, roles and visible text over class names; allow a level of wrapping instead of exact `A > B` chains.
+
+**Health check.** After each page settles (10 s), `boot.js` checks the key hooks for that page; `booking.js` checks the Meet modal's chips 5 s after its date step opens. Each miss is warned once per page as `[CalmerCard] hook missing: <names> (page: <page>)` and listed in the feedback issue body (`Hooks missing: …`). Checked: nav schedule link (every event page), layout columns (people, exhibitors, products, person, messages, my-schedule), calendar columns (my-schedule calendar), Meet modal chips.
+
+| Hook | Where | Targets | Status |
+|---|---|---|---|
+| `content__Inner` › `wrapper__Wrapper` › `aside__Aside` / `main__Main` | `core.js` `CC.layoutColumns` | 3-column page grid | **Changed.** Found only here, grid may be a child or grandchild of `content__Inner`; marked `data-cc-col="wrap|aside|main"` (from the first frame, before boot). All CSS grid rules, the cruft guard and the time zone opener now use the marks. No ARIA or role to anchor on. Health-checked |
+| `top-bar__Wrapper` | `nav.js` | Top bar (nav search scope, placement, icons) | **Changed.** One `topBar()` lookup, falling back to a `header` / `[role="banner"]` that holds the My Schedule link; marked `data-cc-topbar` for CSS |
+| My Schedule link `a[href*="/my-schedule"]` | `nav.js`, `inbox.js` | Nav tab | Sturdy (href). Health-checked |
+| Nav row (was `submenu-wrapper__Container`) | `nav.js` | Inline nav | Sturdy: the top bar's child holding the link, marked `.cc-navbox` |
+| `[aria-label="Notifications"]`, `[aria-label="Messages"]` | `nav.js` | Bell and chat icons | Sturdy (ARIA) |
+| `top-bar__DropDownWrapper` | `nav.js`, CSS | Avatar (nav width limit), chevron | Kept; falls back to `innerWidth - 80` |
+| Heading text + N parents up | `boot.js` cruft | "Need to meet?", "Lead qualification" boxes | Kept. Text is sturdy but the parent count is exact nesting; no better container anchor known without a live DOM. Scoped to the tagged columns |
+| `styles__ColumnsWrapper`, `styles__ColumnContainer` | `calendar.js` | Calendar day columns | Kept; `styles__` is a generic prefix, so likely to break. Exposed as `CC.calendar.columns()`. Health-checked |
+| `timeline-block__BlockWrapper` (`:scope >` children of a column) | `calendar.js`, CSS | Swapcard's blocks (position, fit, ✕) | Kept. Session ids come from `a[href*="/planning/"]` (sturdy). Breaks with the columns, so covered by the same check |
+| `item__Container`, `item__InfoRow`, `item__Title`, `item__Name`, `item__ActionIcon` | `calendar.js`, CSS | Block text fitting, ✕ hover | Kept; cosmetic, title falls back to the link text |
+| `hour-line__Line` | `calendar.js` | Pixels per minute | Kept; falls back to `scrollHeight / 1440` |
+| `desktop-date-header__DayCell`, `__HeaderRow` | `calendar.js`, CSS | Day headers (dates, day view, View button) | Kept; no ARIA on the cells. Date matching uses the visible day number |
+| `multi-switch__Container` | `calendar.js` | List/Calendar switch | Kept; buttons found by text, falls back to their shared parent |
+| `[role="dialog"]` / `[aria-modal]` + text | `booking.js` | Meet modal | Sturdy (role + text) |
+| `time-slot__Wrapper`, `button` + time text | `booking.js` | Slot chips | Kept; text match with `button` fallback. Health-checked |
+| `quick-slot-selection__DayWrapper` | `booking.js` | Where our picker goes | Kept; falls back to the chip's parent |
+| `recommendations__Wrapper` | CSS | "Online now" carousel | Kept (cosmetic) |
+| `content__Inner`, `desktop__Container`, `desktop__GridWrapper`, `styles__GridContainer`, `content__Container` | CSS | Widening, calendar height, nav-inline offset | Kept (single class, no nesting). Cosmetic if lost |
+| `content__Inner > [main >] base__Wrapper` | CSS | My Schedule profile/contacts picker | Kept with the exact chain: `base__` is too generic to loosen |
+| `styles__MenuHeader > styles__ButtonsWrapper`, `drop-down__HeaderContent` `sub-heading__Base` | CSS | Avatar menu shortcuts, event-name colour | Kept (cosmetic); the latter is now scoped by `[data-cc-topbar]` |
+| `captions__Wrapper + divider__` | CSS | Calendar colour legend | Kept (cosmetic, sidebar is hidden anyway) |
+
+When a hook goes missing: open the page, find the element by href, ARIA or text, and fix the single lookup (for layout, `CC.layoutColumns`; for the top bar, `topBar()` in `nav.js`). CSS follows the marks.
+
