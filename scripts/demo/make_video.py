@@ -1,5 +1,5 @@
 # Renders the Calmer Card demo video from anonymized screenshots.
-# Usage: python make_video.py SHOTS_DIR MUSIC.wav OUT.mp4 [--preview]
+# Usage: python make_video.py SHOTS_DIR MUSIC.wav OUT.mp4 [--cut main|decide] [--preview]
 #
 # Each shot is a browser screenshot captured as two half-width retina crops (NAME_L.png and
 # NAME_R.png). Coordinates below are in the browser's screenshot frame (1384x868 for the first
@@ -63,37 +63,60 @@ def new_card(task=''):
 # part that matters (focus = (x0, y0, x1, y1) in the screenshot frame, or [(u, rect), ...]).
 STILL_A, STILL_B = [(0, A_FULL)], [(0, B_FULL)]
 
-TIMELINE = [
+TIMELINES = {
+    'main': [
     card('Making Swapcard less painful', '', 1.35, None, tone='intro'),
 
     flow_card('Booking a 1:1'),
     old_card(''),
     shot('b_person', 'B', 3.0, STILL_B, 'Open their profile and click Meet.', 'before', 1,
          [(0.55, (653, 347))], focus=(470, 40, 950, 380)),
-    shot('b_meet', 'B', 3.6, STILL_B, 'Four time slots. Is your day free? No idea. See more slots.', 'before', 2,
+    shot('b_meet', 'B', 5.0, STILL_B,
+         [(0, 'Only 4 time slots, with no sign if you’re busy 😢'),
+          (0.55, 'Click See more slots.')], 'before', 2,
          [(0.7, (580, 488))], focus=(500, 395, 955, 505)),
-    shot('b_more', 'B', 3.4, STILL_B, 'Another dialog of buttons. Pick one and hope.', 'before', 3,
+    shot('b_more', 'B', 3.4, STILL_B, 'Pick one and hope you’re free during it.', 'before', 3,
          [(0.7, (753, 525))], focus=(458, 155, 955, 683)),
-    shot('b_loc', 'B', 3.0, STILL_B, 'A third dialog, just for the location.', 'before', 4,
+    shot('b_loc', 'B', 3.0, STILL_B, 'A third screen, just to pick the location :(', 'before', 4,
          [(0.65, (706, 373))], focus=(458, 240, 955, 600)),
     shot('b_desc', 'B', 5.0, STILL_B,
-         [(0, 'Only now does it warn you: it clashes with dinner 😬'),
-          (0.5, 'Add a description and send.')], 'before', 5,
-         [(0.8, (845, 700))], focus=[(0, (458, 345, 955, 400)), (0.5, (458, 460, 955, 725))], cap_top=True),
-    shot('b_sent', 'B', 3.2, STILL_B, 'Sent: five clicks, three dialogs, and a clash.', 'before', 5,
+         [(0, 'Only now does it warn you…'),
+          (0.45, 'That time slot clashes with dinner.')], 'before', 5,
+         focus=(458, 345, 955, 400)),
+    shot('b_retry', 'B', 3.6, STILL_B, 'Go back and try again to find a time that works.', 'before', 7,
+         img='b_more', focus=(458, 155, 955, 683)),
+    shot('b_send', 'B', 3.2, STILL_B, 'Add a description and send.', 'before', 9,
+         [(0.7, (845, 700))], img='b_desc', focus=(458, 460, 955, 725), cap_top=True),
+    shot('b_sent', 'B', 3.2, STILL_B, 'So painful and slow.', 'before', 9,
          focus=(458, 390, 955, 505)),
     new_card(),
     shot('new_book_panel', 'A', 3.4, STILL_A, 'Their profile opens in a side panel. Click Book a 1:1.', 'after',
          ripples=[(0.55, (990, 143))], focus=(935, 52, 1384, 162)),
-    shot('new_book_sun', 'B', 4.2, [(0, B_FULL), (1, (560, 40, 1060))], 'Your own day, with times you’re both free. Clashes crossed out.', 'after',
+    shot('new_book_sun', 'B', 4.2, [(0, B_FULL), (1, (560, 40, 1060))], 'Your schedule, with times you’re both free and clashes crossed out.', 'after',
          focus=(965, 165, 1400, 540)),
     shot('new_book_slot', 'B', 3.2, STILL_B, 'Pick a slot and a meeting spot.', 'after',
          ripples=[(0.1, (1311, 328))], focus=(965, 160, 1400, 700)),
     shot('new_book_msg', 'B', 3.0, [(0, (0, 45, 1413))], 'Add a note and send.', 'after',
          ripples=[(0.7, (1048, 808))], focus=(965, 690, 1400, 830), cap_top=True),
-    shot('new_book_sent', 'B', 3.0, STILL_B, 'Done. Not a single dialog.', 'after',
+    shot('new_book_sent', 'B', 3.0, STILL_B, 'Done. So much more peaceful 🧘', 'after',
          focus=(965, 160, 1400, 230)),
 
+    flow_card('Find something else annoying?'),
+    shot('fb_page', 'B', 3.4, [(0, (0, 45, 1413))], 'Click Give feedback, on any page.', 'after',
+         ripples=[(0.6, (1313, 810))], focus=(1226, 790, 1404, 831)),
+    shot('fb_modal', 'B', 6.0, STILL_B,
+         [(0, 'Say what should change.'),
+          (0.45, 'Or make a PR.')], 'after',
+         ripples=[(0.88, (953, 536))], focus=[(0, (392, 278, 1020, 565)), (0.45, (400, 328, 1012, 366)), (0.8, (392, 278, 1020, 565))]),
+    shot('fb_issue', 'B', 4.0, STILL_B, 'It opens a pre-filled GitHub issue.', 'after',
+         focus=(196, 138, 990, 632)),
+    dict(kind='outro', dur=6.5, tone='intro',
+         title='Calmer Card', sub='A free Chrome extension for Swapcard',
+         bullets=['1 click to install',
+                  'Works on top of your current Swapcard. No new app or website :)',
+                  'Makes your life less painful 🧘']),
+    ],
+    'decide': [
     flow_card('Deciding on a meeting request'),
     old_card(''),
     shot('old_home', 'B', 3.0, STILL_B, 'Click the bell to see your requests.', 'before', 1,
@@ -130,16 +153,19 @@ TIMELINE = [
          bullets=['1 click to install',
                   'Works on top of your current Swapcard. No new app or website :)',
                   'Makes your life less painful 🧘']),
-]
+    ],
+}
 
 # The previous shot's click count, so the counter can tick up from it.
-_prev = None
-for _it in TIMELINE:
-    if _it['kind'] == 'shot':
-        _it['prev_count'] = _prev
-        _prev = _it['counter'] if _it['counter'] is not None else _prev
-    else:
-        _prev = None if _it.get('tone') == 'intro' else _prev
+for _tl in TIMELINES.values():
+    _prev = None
+    for _it in _tl:
+        if _it['kind'] == 'shot':
+            _it['prev_count'] = _prev
+            _prev = _it['counter'] if _it['counter'] is not None else _prev
+        else:
+            _prev = None if _it.get('tone') == 'intro' else _prev
+TIMELINE = TIMELINES['main']  # default; main() picks one with --cut NAME
 
 
 # ---------- images ----------
@@ -449,8 +475,11 @@ def render(shot_dir, it, t):
 
 
 def main():
+    global TIMELINE
     shot_dir, music, out = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
     preview = '--preview' in sys.argv
+    if '--cut' in sys.argv:
+        TIMELINE = TIMELINES[sys.argv[sys.argv.index('--cut') + 1]]
     starts, t = [], 0.0
     for it in TIMELINE:
         starts.append(t)

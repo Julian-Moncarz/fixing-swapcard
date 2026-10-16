@@ -82,7 +82,17 @@ Persisted-query hashes as of 2026-10-15 (perishable). We prefer our own query te
 - `Core_bookmarkPlanning(id, eventId)` (add/remove session from schedule; toggles)
 - `UpdateMeetingParticipation {meetingParticipantId, status: GOING|NOT_GOING}`
 - chat `postMessage(asUserId, message: CreateMessageInput)`
+- `Core_updatePersonMeetingSlotsDisabled(input: {eventId, personId: myEventPersonId, isDisabled, meetingSlotIds:[…]})` (ManageAvailabilityUpdateSlotsMutation; also accepts `meetingSlotRange` for a whole day). Used by `availability.js`
 - Others available: CancelMeeting, MeetingDetails_rescheduleMeeting, UpdateMeetingDescriptionMutation, ManageAvailabilityUpdateSlotsMutation (`Core_updatePersonMeetingSlotsDisabled`), MarkActivityAsSeen, ResetNotificationCounter, SwitchVisibilityAttendee, ConnectionInfo_UpdateRatingTagsAndNotes, OwnedDeclareLatestMessageSeen.
+
+**Found 2026-10-16 (used by Calmer Card):**
+- **Your 1:1 slots:** `Core_event(_id){ eventPerson{ withEvent(eventId){ meetingSlotsByDayWithState(dateRange, timezone){ slotsByDay{ day slots{ id starts ends state blockingMeeting{id} } } } } } }`. `state` is `AVAILABLE`, `DISABLED` (you blocked it) or `BLOCKED_BY_MEETING`. Slots are 25 minutes with 5-minute gaps; an event day runs roughly 8 AM to 10 PM.
+- **Contacts:** `Core_listConnections(filter: { eventId }, cursor)` (MyContacts_ContactsQuery). Nodes are `Core_EventPerson` (`id`, names, `connectionInfo{connectedAt}`) or `Core_ConnectionContact` (scanned or imported). `filter: {eventIds}` is rejected.
+- **Pending connections:** `Core_listEventPeople(eventId, filters: [{hasRequestSent: true}, {hasRequestReceived: true}])`.
+- **Request status filters:** `Core_requests(filters: {shouldRequestStatusIn: ACCEPTED | DECLINED | PENDING})` all work.
+- **Meeting description:** `Core_MeetingRequestReceived/Sent.meeting.description` is separate from the request's `message`, and often the only text filled in.
+- **Swapcard's Message button** = `router.push('/event/<slug>/person/<id>?openConnection=true')`. The profile page then shows a "Talk to …" chat box, even with no messages yet. That's the only way we know to start a chat.
+- **Introspection** (`__type`) returns HTTP 500; find shapes in the bundle (skill `/find-swapcard-api`).
 
 ## 5. Cruft
 
@@ -106,7 +116,7 @@ Persisted-query hashes as of 2026-10-15 (perishable). We prefer our own query te
 | Inline profile, no navigation | Person page; Messages right aside | **Side panel** rendered from their data with their theme (Swapcard's CSP `frame-ancestors` forbids framing its own pages, so embedding the person page isn't possible), intercepting person, session and meeting links |
 | Book with mutual availability | Meet modal already computes mutual slots | **Mod step 2 only**: replace chips with a day calendar (your meetings + sessions as context, mutual slots highlighted); selecting calls their own slot click so the rest of their modal is untouched |
 | Cruft removal | n/a | CSS + small DOM hides |
-| Feedback | none | Ours: floating button, capture + markup, send to Tally |
+| Feedback | none | Ours: floating button, capture + markup, opens a pre-filled GitHub issue |
 
 ## 7. DOM hook audit (2026-10-16)
 
@@ -119,7 +129,7 @@ On October 16, 2026 Swapcard started moving parts of the app from styled-compone
 | `content__Inner` › `wrapper__Wrapper` › `aside__Aside` / `main__Main` | `core.js` `CC.layoutColumns` | 3-column page grid | **Changed.** Found only here, grid may be a child or grandchild of `content__Inner`; marked `data-cc-col="wrap|aside|main"` (from the first frame, before boot). All CSS grid rules, the cruft guard and the time zone opener now use the marks. No ARIA or role to anchor on. Health-checked |
 | `top-bar__Wrapper` | `nav.js` | Top bar (nav search scope, placement, icons) | **Changed.** One `topBar()` lookup, falling back to a `header` / `[role="banner"]` that holds the My Schedule link; marked `data-cc-topbar` for CSS |
 | My Schedule link `a[href*="/my-schedule"]` | `nav.js`, `inbox.js` | Nav tab | Sturdy (href). Health-checked |
-| Nav row (was `submenu-wrapper__Container`) | `nav.js` | Inline nav | Sturdy: the top bar's child holding the link, marked `.cc-navbox` |
+| Nav row (was `submenu-wrapper__Container`) | `nav.js` | Inline nav | Sturdy: the top bar's child holding the link (skipping the avatar menu's shortcut), marked `data-cc-navbox` |
 | `[aria-label="Notifications"]`, `[aria-label="Messages"]` | `nav.js` | Bell and chat icons | Sturdy (ARIA) |
 | `top-bar__DropDownWrapper` | `nav.js`, CSS | Avatar (nav width limit), chevron | Kept; falls back to `innerWidth - 80` |
 | Heading text + N parents up | `boot.js` cruft | "Need to meet?", "Lead qualification" boxes | Kept. Text is sturdy but the parent count is exact nesting; no better container anchor known without a live DOM. Scoped to the tagged columns |

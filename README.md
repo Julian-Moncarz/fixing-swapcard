@@ -2,9 +2,13 @@
 
 A Chrome extension that reduces the (currently hellish) number of clicks needed to do things in Swapcard.
 
-https://github.com/user-attachments/assets/b2bd1a88-2200-40ab-8b32-52ac9fb6c791
+https://github.com/user-attachments/assets/104eaa0c-35da-4b6f-892b-6086f0600a52
 
-*Attendee names, photos and bios in the demo are made up.*
+**Deciding on a meeting request:**
+
+https://github.com/user-attachments/assets/70136b25-f24b-4368-9d5a-b74217b75916
+
+*Attendee names, photos and bios in the demos are made up.*
 
 ## Install
 
