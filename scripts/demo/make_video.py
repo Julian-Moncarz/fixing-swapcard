@@ -52,7 +52,7 @@ def flow_card(task):
 
 
 def old_card(task):
-    return card('Without Calmer Card', '', 1.75, None, tone='old')
+    return card('With current Swapcard', '', 1.75, None, tone='old')
 
 
 def new_card(task=''):
@@ -65,6 +65,34 @@ STILL_A, STILL_B = [(0, A_FULL)], [(0, B_FULL)]
 
 TIMELINE = [
     card('Making Swapcard less painful', '', 1.35, None, tone='intro'),
+
+    flow_card('Booking a 1:1'),
+    old_card(''),
+    shot('b_person', 'B', 3.0, STILL_B, 'Open their profile and click Meet.', 'before', 1,
+         [(0.55, (653, 347))], focus=(470, 40, 950, 380)),
+    shot('b_meet', 'B', 3.6, STILL_B, 'Four time slots. Is your day free? No idea. See more slots.', 'before', 2,
+         [(0.7, (580, 488))], focus=(500, 395, 955, 505)),
+    shot('b_more', 'B', 3.4, STILL_B, 'Another dialog of buttons. Pick one and hope.', 'before', 3,
+         [(0.7, (753, 525))], focus=(458, 155, 955, 683)),
+    shot('b_loc', 'B', 3.0, STILL_B, 'A third dialog, just for the location.', 'before', 4,
+         [(0.65, (706, 373))], focus=(458, 240, 955, 600)),
+    shot('b_desc', 'B', 5.0, STILL_B,
+         [(0, 'Only now does it warn you: it clashes with dinner 😬'),
+          (0.5, 'Add a description and send.')], 'before', 5,
+         [(0.8, (845, 700))], focus=[(0, (458, 345, 955, 400)), (0.5, (458, 460, 955, 725))], cap_top=True),
+    shot('b_sent', 'B', 3.2, STILL_B, 'Sent: five clicks, three dialogs, and a clash.', 'before', 5,
+         focus=(458, 390, 955, 505)),
+    new_card(),
+    shot('new_book_panel', 'A', 3.4, STILL_A, 'Their profile opens in a side panel. Click Book a 1:1.', 'after',
+         ripples=[(0.55, (990, 143))], focus=(935, 52, 1384, 162)),
+    shot('new_book_sun', 'B', 4.2, [(0, B_FULL), (1, (560, 40, 1060))], 'Your own day, with times you’re both free. Clashes crossed out.', 'after',
+         focus=(965, 165, 1400, 540)),
+    shot('new_book_slot', 'B', 3.2, STILL_B, 'Pick a slot and a meeting spot.', 'after',
+         ripples=[(0.1, (1311, 328))], focus=(965, 160, 1400, 700)),
+    shot('new_book_msg', 'B', 3.0, [(0, (0, 45, 1413))], 'Add a note and send.', 'after',
+         ripples=[(0.7, (1048, 808))], focus=(965, 690, 1400, 830), cap_top=True),
+    shot('new_book_sent', 'B', 3.0, STILL_B, 'Done. Not a single dialog.', 'after',
+         focus=(965, 160, 1400, 230)),
 
     flow_card('Deciding on a meeting request'),
     old_card(''),
@@ -96,34 +124,6 @@ TIMELINE = [
           (0.68, 'Their full profile right beside it, to judge if they’re worth meeting.')],
          'after', focus=[(0, (0, 54, 282, 600)), (0.2, (0, 54, 282, 600)), (0.36, (284, 60, 1008, 430)), (0.68, (1018, 60, 1370, 868))],
          closeups=[('new_inbox_card', (284, 64, 1006, 424)), ('new_inbox_profile', (1024, 64, 1366, 444))]),
-
-    flow_card('Booking a 1:1'),
-    old_card(''),
-    shot('b_person', 'B', 3.0, STILL_B, 'Open their profile and click Meet.', 'before', 1,
-         [(0.55, (653, 347))], focus=(470, 40, 950, 380)),
-    shot('b_meet', 'B', 3.6, STILL_B, 'Four time slots. Is your day free? No idea. See more slots.', 'before', 2,
-         [(0.7, (580, 488))], focus=(500, 395, 955, 505)),
-    shot('b_more', 'B', 3.4, STILL_B, 'Another dialog of buttons. Pick one and hope.', 'before', 3,
-         [(0.7, (753, 525))], focus=(458, 155, 955, 683)),
-    shot('b_loc', 'B', 3.0, STILL_B, 'A third dialog, just for the location.', 'before', 4,
-         [(0.65, (706, 373))], focus=(458, 240, 955, 600)),
-    shot('b_desc', 'B', 5.0, STILL_B,
-         [(0, 'Only now does it warn you: it clashes with dinner 😬'),
-          (0.5, 'Add a description and send.')], 'before', 5,
-         [(0.8, (845, 700))], focus=[(0, (458, 345, 955, 400)), (0.5, (458, 460, 955, 725))], cap_top=True),
-    shot('b_sent', 'B', 3.2, STILL_B, 'Sent: five clicks, three dialogs, and a clash.', 'before', 5,
-         focus=(458, 390, 955, 505)),
-    new_card(),
-    shot('new_book_panel', 'A', 3.4, STILL_A, 'Their profile opens in a side panel. Click Book a 1:1.', 'after',
-         ripples=[(0.55, (990, 143))], focus=(935, 52, 1384, 162)),
-    shot('new_book_sun', 'B', 4.2, [(0, B_FULL), (1, (560, 40, 1060))], 'Your own day, with times you’re both free. Clashes crossed out.', 'after',
-         focus=(965, 165, 1400, 540)),
-    shot('new_book_slot', 'B', 3.2, STILL_B, 'Pick a slot and a meeting spot.', 'after',
-         ripples=[(0.1, (1311, 328))], focus=(965, 160, 1400, 700)),
-    shot('new_book_msg', 'B', 3.0, [(0, (0, 45, 1413))], 'Add a note and send.', 'after',
-         ripples=[(0.7, (1048, 808))], focus=(965, 690, 1400, 830), cap_top=True),
-    shot('new_book_sent', 'B', 3.0, STILL_B, 'Done. Not a single dialog.', 'after',
-         focus=(965, 160, 1400, 230)),
 
     dict(kind='outro', dur=6.5, tone='intro',
          title='Calmer Card', sub='A free Chrome extension for Swapcard',

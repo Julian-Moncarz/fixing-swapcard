@@ -2,9 +2,9 @@
 
 A Chrome extension that reduces the (currently hellish) number of clicks needed to do things in Swapcard.
 
-[![Watch the 1:38 demo: Swapcard with and without Calmer Card](docs/demo/thumbnail.jpg)](https://github.com/Julian-Moncarz/fixing-swapcard/releases/download/v0.1.1/calmer-card-demo.mp4)
+https://github.com/user-attachments/assets/b2bd1a88-2200-40ab-8b32-52ac9fb6c791
 
-*Click to watch the 1:38 demo. Attendee names, photos and bios in it are made up.*
+*Attendee names, photos and bios in the demo are made up.*
 
 ## Install
 
