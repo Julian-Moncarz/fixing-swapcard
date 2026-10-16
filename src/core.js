@@ -2,7 +2,7 @@
 // Runs in the page's MAIN world so it can reach React fibers and webpack modules.
 (() => {
   if (window.CalmerCard) return;
-  const CC = (window.CalmerCard = { version: '0.1.0' });
+  const CC = (window.CalmerCard = { version: '0.1.1' });
 
   CC.debug = (() => { try { return localStorage.getItem('cc:debug') === '1'; } catch { return false; } })();
   CC.log = (...a) => CC.debug && console.log('[CalmerCard]', ...a);
@@ -241,7 +241,8 @@
   // The page's 3-column layout columns (left aside, main, right aside). Prefixes like
   // "wrapper__Wrapper" are reused by unrelated components, so anchor on the page content.
   CC.layoutColumns = () => {
-    const wrap = document.querySelector(`${CC.sc('content__Inner')} > ${CC.sc('wrapper__Wrapper')}`);
+    // Swapcard sometimes wraps the grid in a <main> (since their October 2026 update).
+    const wrap = document.querySelector(`${CC.sc('content__Inner')} > ${CC.sc('wrapper__Wrapper')}, ${CC.sc('content__Inner')} > main > ${CC.sc('wrapper__Wrapper')}`);
     if (!wrap) return { wrap: null, asides: [], main: null };
     const kids = [...wrap.children];
     return {

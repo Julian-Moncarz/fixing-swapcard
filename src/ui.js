@@ -229,7 +229,8 @@
     });
 
     return h('div', { class: 'cc-grid' },
-      h('div', { class: 'cc-grid-axiswrap' }, h('div', { class: 'cc-grid-dayhead' }, ''), axis),
+      // The axis gets a blank header of the same height so hour labels line up with the gridlines.
+      h('div', { class: 'cc-grid-axiswrap' }, h('div', { class: 'cc-grid-dayhead' }, days.some((d) => d.label) ? '\u00a0' : ''), axis),
       ...cols);
   };
 })();

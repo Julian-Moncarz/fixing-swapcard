@@ -7,11 +7,25 @@
   const schedulePath = () => `/event/${CC.route().slug}/my-schedule?view=schedule&appearance=calendar`;
 
   // Swapcard's own "My Schedule" link, found by URL so renaming it doesn't lose it.
-  // Looked up inside Swapcard's nav container only (this runs on every DOM change).
-  const navContainer = () => document.querySelector(CC.sc('submenu-wrapper__Container'));
+  // Looked up inside the top bar only (this runs on every DOM change). Swapcard's nav row has
+  // no stable class name (it was submenu-wrapper__Container, now atomic classes), so the row is
+  // the top bar's child that holds the link; we tag it .cc-navbox for CSS.
+  const isSchedule = (a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && !a.classList.contains('cc-nav-inbox');
   const scheduleLink = () => {
-    const box = navContainer();
-    return box ? CC.$$('a[href]', box).find((a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && !a.classList.contains('cc-nav-inbox')) : null;
+    const bar = document.querySelector(CC.sc('top-bar__Wrapper'));
+    return bar ? CC.$$('a[href*="/my-schedule"]', bar).find(isSchedule) || null : null;
+  };
+  const navContainer = () => {
+    const tagged = document.querySelector('.cc-navbox');
+    if (tagged && tagged.isConnected && tagged.contains(scheduleLink())) return tagged;
+    const sched = scheduleLink();
+    const bar = sched && sched.closest(CC.sc('top-bar__Wrapper'));
+    if (!bar) return null;
+    let box = sched;
+    while (box.parentElement && box.parentElement !== bar) box = box.parentElement;
+    if (tagged) tagged.classList.remove('cc-navbox');
+    box.classList.add('cc-navbox');
+    return box;
   };
 
   // Nav links to drop: Home (the bare event URL) and Agenda (a plannings view).
@@ -22,6 +36,7 @@
   };
 
   const tidyNav = () => {
+    navContainer();
     const sched = scheduleLink();
     if (!sched) return;
     // Rename "My Schedule" to "Schedule" (first text node only; React keeps the rest).
@@ -70,7 +85,7 @@
   let placeSig = '';
   const placeNav = (force) => {
     const bar = document.querySelector('[class*="top-bar__Wrapper-sc-"]');
-    const navBox = document.querySelector('[class*="submenu-wrapper__Container-sc-"]');
+    const navBox = navContainer();
     if (!bar) return;
     // Measuring is expensive; only redo it when the bar's width or text changed.
     const sig = innerWidth + '|' + bar.textContent.length;
@@ -89,7 +104,8 @@
     const left = Math.round(right + 32);
     document.documentElement.style.setProperty('--cc-nav-left', left + 'px');
     // Does the nav fit between the event name and the avatar? Its width is the span of its items.
-    const rects = navBox ? CC.$$('a[href], button', navBox).filter((a) => a.offsetParent !== null).map((a) => a.getBoundingClientRect()) : [];
+    const list = navBox && navBox.querySelector('ul');
+    const rects = list ? CC.$$('a[href], button', list).filter((a) => a.offsetParent !== null).map((a) => a.getBoundingClientRect()) : [];
     const navWidth = rects.length ? Math.max(...rects.map((r) => r.right)) - Math.min(...rects.map((r) => r.left)) + 24 : Infinity;
     const avatar = bar.querySelector(CC.sc('top-bar__DropDownWrapper'));
     const limit = avatar ? avatar.getBoundingClientRect().left - 16 : innerWidth - 80;

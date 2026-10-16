@@ -208,37 +208,64 @@
   // Your blocks get the left part of each day; sessions you're not attending get the rest.
   // In day view there's room to give the options more space.
   const ownShare = () => (dayFocus ? 0.4 : 0.58);
+  // A length as a fraction of the column: "120px", "50%", or calc() sums like "calc(50% + 16px)".
   const fracOf = (v, W) => {
     if (!v) return null;
-    const n = parseFloat(v);
-    if (isNaN(n)) return null;
-    return v.endsWith('%') ? n / 100 : n / W;
+    let sum = 0, any = false;
+    for (const [, sign, num, unit] of v.replace(/\s+/g, '').matchAll(/([+-]?)(\d*\.?\d+)(%|px)/g)) {
+      const n = parseFloat(num) * (sign === '-' ? -1 : 1);
+      sum += unit === '%' ? n / 100 : n / W;
+      any = true;
+    }
+    return any ? sum : null;
   };
+  // Swapcard writes a block's horizontal position as inline left or (since October 2026)
+  // inset-inline-start. We take over with left and drop inset-inline-start while scaled.
+  const posOf = (st) => st.getPropertyValue('inset-inline-start') || st.left;
   const scaleBlocks = (col) => {
     const W = col.clientWidth;
     if (!W) return;
     for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
       const st = b.style;
       // React wrote new values if they differ from what we last set.
-      if (st.left !== b.dataset.ccLeft) b.dataset.ccOrigLeft = st.left || '0px';
+      if (st.left !== b.dataset.ccLeft || st.getPropertyValue('inset-inline-start')) {
+        b.dataset.ccOrigInset = st.getPropertyValue('inset-inline-start');
+        b.dataset.ccOrigLeft = st.left;
+        b.dataset.ccOrigPos = posOf(st) || '0px';
+      }
       if (st.width !== b.dataset.ccWidth) b.dataset.ccOrigWidth = st.width || W + 'px';
-      const l = fracOf(b.dataset.ccOrigLeft, W) || 0;
+      const l = fracOf(b.dataset.ccOrigPos, W) || 0;
       const w = fracOf(b.dataset.ccOrigWidth, W) || 1;
       // Full width unless a grey session or chip sits beside it.
       const top = parseFloat(b.style.top) || 0;
       const bottom = top + (parseFloat(b.style.height) || b.offsetHeight);
       const beside = (col.__ccGhostSpans || []).some(([t, bt]) => t < bottom && bt > top);
-      const share = beside ? ownShare() : 1;
+      if (!beside) {
+        // Nothing to squeeze for: leave Swapcard's own position alone.
+        restore(b);
+        continue;
+      }
+      const share = ownShare();
       const nl = (l * share * 100).toFixed(2) + '%';
       const nw = `calc(${(w * share * 100).toFixed(2)}% - 6px)`;
       // Only write when something changed, or our own writes would re-trigger the observer forever.
       if (b.dataset.ccTarget === nl + '|' + nw && st.left === b.dataset.ccLeft && st.width === b.dataset.ccWidth) continue;
+      st.removeProperty('inset-inline-start');
       st.setProperty('left', nl);
       st.setProperty('width', nw);
       b.dataset.ccTarget = nl + '|' + nw;
       b.dataset.ccLeft = st.left;
       b.dataset.ccWidth = st.width;
     }
+  };
+  // Put back exactly what Swapcard wrote.
+  const restore = (b) => {
+    if (!('ccTarget' in b.dataset)) return;
+    const st = b.style;
+    if (b.dataset.ccOrigInset) st.setProperty('inset-inline-start', b.dataset.ccOrigInset);
+    if (b.dataset.ccOrigLeft) st.setProperty('left', b.dataset.ccOrigLeft); else st.removeProperty('left');
+    if (b.dataset.ccOrigWidth) st.setProperty('width', b.dataset.ccOrigWidth);
+    for (const k of ['ccOrigInset', 'ccOrigLeft', 'ccOrigPos', 'ccOrigWidth', 'ccLeft', 'ccWidth', 'ccTarget']) delete b.dataset[k];
   };
   // Swapcard's blocks have a fixed height, so text that wraps gets cut mid-line. Drop the least
   // important lines first (category, then location), then clamp the title, until it fits.
@@ -287,11 +314,7 @@
     }
   };
   const unscaleBlocks = () => {
-    for (const b of CC.$$(`${sc('timeline-block__BlockWrapper')}[data-cc-orig-left]`)) {
-      b.style.left = b.dataset.ccOrigLeft;
-      b.style.width = b.dataset.ccOrigWidth;
-      delete b.dataset.ccOrigLeft; delete b.dataset.ccOrigWidth; delete b.dataset.ccLeft; delete b.dataset.ccWidth;
-    }
+    for (const b of CC.$$(`${sc('timeline-block__BlockWrapper')}[data-cc-target]`)) restore(b);
   };
   // React can change a block's style without adding nodes, so watch style attributes too.
   let styleObs = null;
@@ -363,7 +386,6 @@
       lastSig = sig;
       document.documentElement.classList.toggle('cc-ghosts-on', show);
       cols.forEach((c) => { c.__ccGhostSpans = []; });
-      if (!show) return;
       const sessions = await CC.data.sessions();
       sessionsCache = sessions;
       const hid = loadHidden();
@@ -398,8 +420,9 @@
 
         // A few at once sit side by side as real blocks. A busy time becomes one "N other sessions"
         // block that opens the day view; in day view everything is a real block.
+        // With "other sessions" off the layer stays empty (it still marks the column as done).
         const maxLanes = dayFocus ? 6 : 2;
-        for (const cl of clusters(todays.filter((s) => !isLogistics(s)))) {
+        for (const cl of show ? clusters(todays.filter((s) => !isLogistics(s))) : []) {
           const n = assignLanes(cl.items);
           if (n <= maxLanes) {
             for (const s of cl.items) {

@@ -37,11 +37,11 @@ html.cc-on.cc-page-people [class*="recommendations__Wrapper-sc-"] { display: non
 
 /* ---------- use the screen on the calendar and inbox ---------- */
 html.cc-wide [class*="content__Inner-sc-"],
-html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] { max-width: min(1760px, calc(100vw - 48px)) !important; width: 100% !important; }
-html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] > [class*="main__Main-sc-"] { width: auto !important; max-width: none !important; min-width: 0; }
+html.cc-wide :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) { max-width: min(1760px, calc(100vw - 48px)) !important; width: 100% !important; }
+html.cc-wide :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) > [class*="main__Main-sc-"] { width: auto !important; max-width: none !important; min-width: 0; }
 /* Their layout is a grid with fixed tracks (302px | 928px [| 302px]); let the middle one grow. */
-html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] { grid-template-columns: 302px minmax(0, 1fr) !important; }
-html.cc-wide [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"]:has(> [class*="main__Main-sc-"] + [class*="aside__Aside-sc-"]) { grid-template-columns: 302px minmax(0, 1fr) 302px !important; }
+html.cc-wide :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) { grid-template-columns: 302px minmax(0, 1fr) !important; }
+html.cc-wide :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]):has(> [class*="main__Main-sc-"] + [class*="aside__Aside-sc-"]) { grid-template-columns: 302px minmax(0, 1fr) 302px !important; }
 html.cc-wide [class*="desktop__Container-sc-"],
 html.cc-wide [class*="desktop__GridWrapper-sc-"],
 html.cc-wide [class*="styles__GridContainer-sc-"] { width: 100% !important; max-width: none !important; }
@@ -166,10 +166,10 @@ html.cc-dayview [class*="desktop-date-header__DayCell-sc-"]:not(.cc-day-off) { f
 .cc-own-x:hover { background: var(--cc-danger-container); color: var(--cc-danger); box-shadow: 0 0 0 1px var(--cc-danger); }
 /* The My profile / My contacts / My schedule / My bookmarks picker above the calendar
    (profile and contacts are still in the avatar menu). */
-html.cc-page-my-schedule [class*="content__Inner-sc-"] > [class*="base__Wrapper-sc-"] { display: none !important; }
+html.cc-page-my-schedule :is([class*="content__Inner-sc-"] > [class*="base__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="base__Wrapper-sc-"]) { display: none !important; }
 /* The schedule's sidebar (appearance, legend, time zone) is replaced by the View button. */
-html.cc-page-my-schedule [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] > [class*="aside__Aside-sc-"] { display: none !important; }
-html.cc-page-my-schedule [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] { grid-template-columns: minmax(0, 1fr) !important; }
+html.cc-page-my-schedule :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) > [class*="aside__Aside-sc-"] { display: none !important; }
+html.cc-page-my-schedule :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) { grid-template-columns: minmax(0, 1fr) !important; }
 .cc-view { position: absolute; left: 4px; top: 8px; z-index: 5; font-family: var(--cc-font); }
 .cc-view-btn {
   font: 500 12px var(--cc-font); color: var(--cc-text-muted); background: var(--cc-bg); cursor: pointer;
@@ -227,10 +227,12 @@ html.cc-page-my-schedule [class*="captions__Wrapper-sc-"] + [class*="divider__"]
    to just after the event switcher so it never overlaps it. */
 /* Only when it fits (nav.js sets .cc-nav-inline); narrow windows keep Swapcard's two rows. */
 html.cc-nav-inline [class*="top-bar__Wrapper-sc-"] { position: relative; }
-html.cc-nav-inline [class*="submenu-wrapper__Container-sc-"] {
+html.cc-nav-inline .cc-navbox {
   position: absolute !important; top: 6px; left: var(--cc-nav-left, 50%); width: auto !important; z-index: 2;
 }
 html.cc-nav-inline [class*="content__Container-sc-"] { top: 80px !important; }
+/* Swapcard's "See less" toggle under the nav row means nothing once the nav is in the top bar. */
+html.cc-nav-inline .cc-navbox button[aria-label="See less"], html.cc-nav-inline .cc-navbox button[aria-label="See more"] { display: none !important; }
 /* The calendar's height was sized for the old two-row header; give it the freed space. */
 html.cc-nav-inline.cc-page-my-schedule [class*="desktop__Container-sc-"] { height: calc(100vh - 180px) !important; }
 .cc-nav-first { order: -1; }
@@ -325,8 +327,8 @@ html.cc-on a.cc-nav-active { box-shadow: inset 0 -2px 0 var(--cc-text); }
 /* ---------- inbox ---------- */
 /* Right column on Messages: wider, with our full profile instead of their small card. */
 /* Swapcard's layout is a grid: 302px | 1fr | 302px. Give the profile column more room. */
-html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"]:has(> [class*="aside__Aside-sc-"].cc-has-side-profile) { grid-template-columns: 302px minmax(0, 1fr) 420px !important; }
-html.cc-page-messages [class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"] > [class*="aside__Aside-sc-"].cc-has-side-profile {
+html.cc-page-messages :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]):has(> [class*="aside__Aside-sc-"].cc-has-side-profile) { grid-template-columns: 302px minmax(0, 1fr) 420px !important; }
+html.cc-page-messages :is([class*="content__Inner-sc-"] > [class*="wrapper__Wrapper-sc-"], [class*="content__Inner-sc-"] > main > [class*="wrapper__Wrapper-sc-"]) > [class*="aside__Aside-sc-"].cc-has-side-profile {
   width: auto !important; max-width: none !important; min-width: 0;
   background: var(--cc-bg); border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md);
   overflow-y: auto; max-height: calc(100vh - 140px); position: sticky; top: 120px; align-self: flex-start;
