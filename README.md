@@ -1,6 +1,6 @@
 # Calmer Card
 
-A Chrome extension that makes Swapcard's attendee app calmer: one calendar for your schedule, one inbox for requests and chats, and profiles that open beside what you're doing.
+A Chrome extension that reduces the (currently hellish) number of clicks needed to do things in Swapcard.
 
 [![Watch the 1:38 demo: Swapcard with and without Calmer Card](docs/demo/thumbnail.jpg)](https://github.com/Julian-Moncarz/fixing-swapcard/releases/download/v0.1.1/calmer-card-demo.mp4)
 
