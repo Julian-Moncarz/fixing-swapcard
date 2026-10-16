@@ -110,8 +110,8 @@
       }
     }`,
 
-    requests: `query CalmerCardRequests {
-      reqs: Core_requests(cursor: { first: 100 }, filters: { shouldRequestStatusIn: PENDING }) {
+    requests: `query CalmerCardRequests($status: Core_RequestStatus!) {
+      reqs: Core_requests(cursor: { first: 100 }, filters: { shouldRequestStatusIn: [$status] }) {
         totalCount
         nodes {
           __typename
@@ -136,6 +136,16 @@
         _id
         availableMeetingSlots(peopleIds: $peopleIds, cursor: { first: 1000 }, dateRange: $dateRange) {
           nodes { id starts ends }
+        }
+      }
+    }`,
+
+    // Attendee search, as on Swapcard's Attendees page. Cards' ids are event person ids.
+    searchPeople: `query CalmerCardSearchPeople($viewId: ID!, $search: String) {
+      view: Core_eventPeopleListView(viewId: $viewId, search: $search) {
+        id
+        people: peopleViewFeaturedCards(cursor: { first: 8 }) {
+          nodes { id firstName lastName photoUrl jobTitle organization }
         }
       }
     }`,
@@ -400,10 +410,13 @@
     },
 
     // Pending requests for the current event (meeting + connection, received + sent).
-    async requests() {
+    requests() { return data.requestsWithStatus('PENDING'); },
+    // Declined ones (by you or by them), so those people stay findable in the Inbox.
+    declinedRequests() { return data.requestsWithStatus('DECLINED'); },
+    async requestsWithStatus(status) {
       const ev = await data.event();
-      return cached('requests:' + ((ev && ev.id) || ''), 20e3, async () => {
-        const r = await CC.query(Q.requests, {});
+      return cached('requests:' + status + ':' + ((ev && ev.id) || ''), 20e3, async () => {
+        const r = await CC.query(Q.requests, { status });
         return r.reqs.nodes
           .filter((n) => n.id && (!n.event || !ev || n.event.id === ev.id || n.event.slug === ev.slug))
           .map((n) => ({
@@ -414,6 +427,7 @@
             message: n.message,
             sentAt: n.sentAt ? new Date(n.sentAt) : null,
             seen: n.seen,
+            declined: n.status === 'DECLINED',
             personId: n.eventPerson && n.eventPerson.id,
             user: n.user || {},
             meeting: n.meeting ? {
@@ -439,6 +453,23 @@
         dateRange: { start: start.toISOString(), end: end.toISOString() },
       });
       return r.event.availableMeetingSlots.nodes.map((s) => ({ id: s.id, start: new Date(s.starts), end: new Date(s.ends) }));
+    },
+
+    // Attendees matching a name: [{ personId, name, photoUrl, sub }], yourself left out.
+    async searchPeople(search) {
+      const ev = await data.event();
+      const viewId = ev && ev.peopleViewIds[0];
+      if (!viewId || !search) return [];
+      return cached('people:' + viewId + ':' + search.toLowerCase(), 60e3, async () => {
+        const r = await CC.query(Q.searchPeople, { viewId, search });
+        const nodes = (r.view && r.view.people && r.view.people.nodes) || [];
+        return nodes.filter((n) => n && n.id && n.id !== (ev.me && ev.me.id)).map((n) => ({
+          personId: n.id,
+          name: [n.firstName, n.lastName].filter(Boolean).join(' ') || 'Someone',
+          photoUrl: n.photoUrl,
+          sub: [n.jobTitle, n.organization].filter(Boolean).join(' · '),
+        }));
+      });
     },
 
     // Your contacts at this event: [{ personId, name, firstName, photoUrl, sub, connectedAt }].

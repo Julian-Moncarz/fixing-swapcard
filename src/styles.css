@@ -371,6 +371,8 @@ html.cc-page-messages [data-cc-col="wrap"] > [data-cc-col="aside"].cc-has-side-p
 .cc-ib-connect { color: var(--cc-tertiary) !important; font-weight: 500; }
 .cc-ib-free { color: var(--cc-success); }
 .cc-ib-clash { color: var(--cc-warning); }
+.cc-ib-declined { color: var(--cc-text-muted); font-weight: 500; }
+.cc-ib-section { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--cc-text-muted); padding: 12px 8px 6px; border-bottom: 1px solid var(--cc-outline); }
 .cc-ib-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cc-notification); flex: none; }
 .cc-empty { padding: 8px 12px 12px; color: var(--cc-text-muted); font: 400 13px var(--cc-font); }
 .cc-ib-keys { font-size: 11px; color: var(--cc-on-disabled); padding: 10px 6px; }
@@ -383,6 +385,7 @@ html.cc-page-messages [data-cc-col="wrap"] > [data-cc-col="aside"].cc-has-side-p
   font-family: var(--cc-font); display: flex; flex-direction: column; gap: 8px; padding: 16px;
   border: 1px solid var(--cc-outline); border-left: 4px solid var(--cc-warning); border-radius: var(--cc-radius-md); background: var(--cc-bg);
 }
+.cc-ib-card-declined, .cc-ib-card-plain { border-left-color: var(--cc-outline); }
 .cc-ib-card-title { font-size: 16px; font-weight: 600; }
 .cc-ib-card-when { font-size: 14px; }
 .cc-ib-card-free { font-size: 13px; font-weight: 500; }

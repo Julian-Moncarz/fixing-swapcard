@@ -67,8 +67,9 @@
 
   // ---------- the merged list ----------
   // One entry per person: their chat (if any) plus their pending request (if any). Contacts you
-  // haven't chatted with yet get an entry too, so you can always message them from here.
-  const buildEntries = (chats, reqs, contacts = []) => {
+  // haven't chatted with yet get an entry too, so you can always message them from here, and so
+  // do people whose request was declined (either way), so they don't vanish from the list.
+  const buildEntries = (chats, reqs, contacts = [], declined = []) => {
     const byPerson = new Map();
     const entries = [];
     for (const c of chats) {
@@ -90,11 +91,19 @@
       entries.push(e);
       byPerson.set(c.personId, e);
     }
+    for (const r of declined) { // newest first, so each person keeps their latest one
+      if (!r.personId || byPerson.has(r.personId)) continue;
+      const name = [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') || 'Someone';
+      const e = { key: 'declined:' + r.id, chat: null, request: null, declined: r, personId: r.personId, name, photoUrl: r.user.photoUrl, sub: [r.user.jobTitle, r.user.organization].filter(Boolean).join(' · ') };
+      entries.push(e);
+      byPerson.set(r.personId, e);
+    }
     for (const e of entries) {
       const r = e.request;
       e.needsYou = !!(r && r.incoming) || !!(e.chat && e.chat.unread > 0);
       e.waiting = !!(r && !r.incoming);
       e.at = Math.max((e.chat && e.chat.last && +e.chat.last.at) || 0, (r && r.sentAt && +r.sentAt) || 0,
+        (e.declined && e.declined.sentAt && +e.declined.sentAt) || 0,
         (e.contact && e.contact.connectedAt && +e.contact.connectedAt) || 0);
     }
     const group = (e) => (e.needsYou ? 0 : e.waiting ? 1 : 2);
@@ -122,16 +131,47 @@
     if (e.chat && e.chat.last) return h('span', { class: 'cc-ib-what' }, (e.chat.last.fromMe ? 'You: ' : '') + e.chat.last.text.replace(/\s+/g, ' ').trim());
     if (r && !r.incoming) return h('span', { class: 'cc-ib-what' }, r.isMeeting ? 'You requested a meeting · waiting' : 'You asked to connect · waiting');
     if (e.contact) return h('span', { class: 'cc-ib-what' }, 'Connected · no messages yet');
+    if (e.declined) {
+      const d = e.declined;
+      return h('span', { class: 'cc-ib-what' }, h('span', { class: 'cc-ib-declined' }, d.incoming ? 'Declined' : 'They declined'),
+        ` · ${d.incoming ? 'their' : 'your'} ${d.isMeeting ? 'meeting' : 'connection'} request`);
+    }
+    if (e.attendee) return h('span', { class: 'cc-ib-what' }, e.sub || 'Attendee');
     return h('span', { class: 'cc-ib-what' }, '');
   };
 
-  let state = { filter: 'all', query: '', selectedKey: null, entries: [], agenda: [] };
+  // people: attendee search results for `query` that aren't already in the list.
+  let state = { filter: 'all', query: '', selectedKey: null, entries: [], agenda: [], people: { query: '', results: [] } };
   const chatPath = (channelId) => `/event/${CC.route().slug}/messages/channel/${channelId}?chatUserId=${encodeURIComponent(CC._meUserId || '')}`;
   const currentChannelId = () => (location.pathname.match(/\/messages\/channel\/([^/?#]+)/) || [])[1] || null;
 
-  const visibleEntries = () => state.entries.filter((e) =>
+  const matchingEntries = () => state.entries.filter((e) =>
     (state.filter === 'all' || e.needsYou) &&
     (!state.query || e.name.toLowerCase().includes(state.query.toLowerCase())));
+  const attendeeEntries = () => {
+    if (!state.query.trim() || state.people.query !== state.query.trim()) return [];
+    const listed = new Set(state.entries.map((e) => e.personId).filter(Boolean));
+    return state.people.results.filter((p) => !listed.has(p.personId)).map((p) => ({
+      key: 'person:' + p.personId, chat: null, request: null, attendee: true, personId: p.personId, name: p.name, photoUrl: p.photoUrl, sub: p.sub, at: 0,
+    }));
+  };
+  const visibleEntries = () => matchingEntries().concat(attendeeEntries());
+
+  // Search everyone at the event too, so people you've never talked to are a name away.
+  let searchTimer = null;
+  const searchAttendees = () => {
+    clearTimeout(searchTimer);
+    const q = state.query.trim();
+    if (q.length < 2) { state.people = { query: '', results: [] }; return; }
+    searchTimer = setTimeout(async () => {
+      try {
+        const results = await CC.data.searchPeople(q);
+        if (state.query.trim() !== q) return;
+        state.people = { query: q, results };
+        renderList();
+      } catch (e) { CC.warn('people search', e); }
+    }, 300);
+  };
 
   const select = (e) => {
     if (!e) return;
@@ -171,21 +211,25 @@
   const renderList = () => {
     if (!listEl) return;
     const needs = state.entries.filter((e) => e.needsYou).length;
-    const list = visibleEntries();
+    const mine = matchingEntries();
+    const others = attendeeEntries();
     const tab = (id, label) => {
       const b = h('button', { type: 'button', class: 'cc-ib-tab' + (state.filter === id ? ' cc-selected' : ''), 'aria-pressed': String(state.filter === id) }, label);
       b.addEventListener('click', () => { state.filter = id; renderList(); });
       return b;
     };
     const search = h('input', { type: 'search', class: 'cc-ib-search', placeholder: 'Search people', value: state.query, 'aria-label': 'Search people' });
-    search.addEventListener('input', () => { state.query = search.value; renderList(); const s = listEl.querySelector('.cc-ib-search'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); });
+    search.addEventListener('input', () => { state.query = search.value; searchAttendees(); renderList(); const s = listEl.querySelector('.cc-ib-search'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); });
     CC.fill(listEl,
       h('div', { class: 'cc-ib-bar' },
         h('div', { class: 'cc-row' }, tab('needs', `Needs you${needs ? ` (${needs})` : ''}`), tab('all', 'All')),
         search),
-      list.length
-        ? h('div', { class: 'cc-ib-list', role: 'listbox', 'aria-label': 'Conversations' }, list.map(rowFor))
-        : h('div', { class: 'cc-empty' }, state.filter === 'needs' ? 'Nothing needs you right now.' : 'No conversations yet.'),
+      mine.length || others.length
+        ? h('div', { class: 'cc-ib-list', role: 'listbox', 'aria-label': 'Conversations' },
+          mine.map(rowFor),
+          others.length ? h('div', { class: 'cc-ib-section', role: 'presentation' }, 'Other attendees') : null,
+          others.map(rowFor))
+        : h('div', { class: 'cc-empty' }, state.query.trim().length >= 2 && state.people.query !== state.query.trim() ? 'Searching everyone…' : state.query.trim() ? 'No one by that name.' : state.filter === 'needs' ? 'Nothing needs you right now.' : 'No conversations yet.'),
       h('div', { class: 'cc-ib-keys' }, 'J/K move · A accept · D decline · R reply · / search'));
   };
 
@@ -206,7 +250,7 @@
   // They're separate fields and often only one is filled. inChat: the conversation is shown
   // underneath, so skip the note only when it is literally the latest chat message.
   const requestTexts = (e, inChat) => {
-    const r = e.request;
+    const r = e.request || e.declined;
     const norm = (x) => (x || '').replace(/\s+/g, ' ').trim();
     const desc = r.meeting && r.meeting.description;
     const last = inChat && e.chat && e.chat.last && e.chat.last.text;
@@ -218,11 +262,15 @@
   };
 
   const requestCard = (e, { inChat = false } = {}) => {
-    const r = e.request;
-    const f = freeness(r, state.agenda);
-    const card = h('div', { class: 'cc-ib-card' });
+    const r = e.request || e.declined;
+    const first = e.name.split(' ')[0];
+    const f = r.declined ? null : freeness(r, state.agenda);
+    const card = h('div', { class: 'cc-ib-card' + (r.declined ? ' cc-ib-card-declined' : '') });
     const done = (msg) => { card.replaceChildren(h('div', { class: 'cc-request-done' }, msg)); };
-    const title = r.incoming
+    const what = r.isMeeting ? 'meeting request' : 'connection request';
+    const title = r.declined
+      ? (r.incoming ? `You declined ${first}’s ${what}` : `${first} declined your ${what}`)
+      : r.incoming
       ? (r.isMeeting ? `${e.name.split(' ')[0]} wants to meet` : `${e.name.split(' ')[0]} wants to connect`)
       : (r.isMeeting ? 'You requested a meeting' : 'You asked to connect');
     CC.fill(card,
@@ -234,6 +282,7 @@
     // The day window (meeting requests you received).
     const daySlot = h('div', { class: 'cc-ib-dayslot' });
     let redrawDay = null;
+    if (r.declined) return card;
     if (r.incoming && r.meeting) { card.append(daySlot); redrawDay = dayWindow(e, daySlot); }
     if (r.incoming) {
       const suggest = r.isMeeting && e.personId ? ui.button('Suggest another time', {
@@ -259,6 +308,20 @@
     main.querySelector(':scope > .cc-ib-pin')?.remove();
     main.querySelector(':scope > .cc-ib-solo')?.remove();
     main.classList.toggle('cc-ib-solo-on', !!requestOnly);
+    if (requestOnly && requestOnly.declined) {
+      main.prepend(h('div', { class: 'cc-ib-solo' },
+        requestCard(requestOnly),
+        h('div', { class: 'cc-muted cc-small cc-ib-solo-note' }, 'Changed your mind? Book a 1:1 and Connect are on their profile.')));
+      return;
+    }
+    if (requestOnly && requestOnly.attendee) {
+      main.prepend(h('div', { class: 'cc-ib-solo' },
+        h('div', { class: 'cc-ib-card cc-ib-card-plain' },
+          h('div', { class: 'cc-ib-card-title' }, requestOnly.name),
+          requestOnly.sub && h('div', { class: 'cc-muted cc-small' }, requestOnly.sub),
+          h('div', { class: 'cc-muted cc-small' }, 'No conversation yet. Book a 1:1 and Connect are on their profile.'))));
+      return;
+    }
     if (requestOnly && !requestOnly.request) {
       // A contact with no conversation yet.
       const first = requestOnly.name.split(' ')[0];
@@ -310,7 +373,7 @@
   let loading = false, again = false, lastSig = '';
   // A compact fingerprint of what the list shows, so periodic refreshes that change nothing
   // don't rebuild the list (losing search focus) or the request card (losing an open picker).
-  const sigOf = (entries) => entries.map((e) => [e.key, e.needsYou, e.waiting, e.at, e.chat && e.chat.unread, e.request && e.request.id].join(':')).join('|');
+  const sigOf = (entries) => entries.map((e) => [e.key, e.needsYou, e.waiting, e.at, e.chat && e.chat.unread, e.request && e.request.id, e.declined && e.declined.id].join(':')).join('|');
   const refresh = async (force) => {
     if (!isMessagesPage()) return;
     if (loading) { again = again || force; return; } // queue it; don't drop it
@@ -320,9 +383,10 @@
       const ev = await CC.data.event();
       if (!ev || !ev.me) return; // not registered for this event: leave Swapcard's list alone
       CC._meUserId = ev.me.userId;
-      const [chats, reqs, agenda, contacts] = await Promise.all([CC.data.chats(), CC.data.requests(), CC.data.agenda().catch(() => []),
-        CC.data.contacts().catch((e) => { CC.warn('contacts', e); return []; })]);
-      const entries = buildEntries(chats, reqs, contacts);
+      const [chats, reqs, agenda, contacts, declined] = await Promise.all([CC.data.chats(), CC.data.requests(), CC.data.agenda().catch(() => []),
+        CC.data.contacts().catch((e) => { CC.warn('contacts', e); return []; }),
+        CC.data.declinedRequests().catch((e) => { CC.warn('declined requests', e); return []; })]);
+      const entries = buildEntries(chats, reqs, contacts, declined);
       const sig = sigOf(entries);
       state.entries = entries;
       state.agenda = agenda;
@@ -331,7 +395,11 @@
         const open = state.entries.find((e) => e.chat && e.chat.channelId === currentChannelId());
         if (open) state.selectedKey = open.key;
       } else {
-        requestOnly = state.entries.find((e) => e.key === requestOnly.key) || null;
+        // Same person, possibly a new kind of entry (a request you just declined, an attendee
+        // from search who just connected). An attendee not in the list keeps its selection.
+        const same = state.entries.find((e) => e.key === requestOnly.key) || state.entries.find((e) => !e.chat && requestOnly.personId && e.personId === requestOnly.personId);
+        requestOnly = same || (requestOnly.attendee ? requestOnly : null);
+        if (requestOnly) state.selectedKey = requestOnly.key;
       }
       // Only now hide Swapcard's own list: if loading had failed, theirs would still be there.
       const left = CC.layoutColumns().asides[0];
@@ -407,7 +475,7 @@
     renderList();
     renderMain();
   });
-  CC.on('event-changed', () => { state.entries = []; state.agenda = []; state.selectedKey = null; requestOnly = null; lastSig = ''; });
+  CC.on('event-changed', () => { state.entries = []; state.agenda = []; state.people = { query: '', results: [] }; state.selectedKey = null; requestOnly = null; lastSig = ''; });
   CC.on('requests-changed', () => { refreshCounts(); setTimeout(() => refresh(true), 300); });
   CC.on('drawer-closed', () => { CC.data.invalidate('requests'); refreshCounts(); if (isMessagesPage()) refresh(true); });
   setInterval(() => { if (!document.hidden) { refreshCounts(); if (isMessagesPage()) refresh(true); } }, 30000);
