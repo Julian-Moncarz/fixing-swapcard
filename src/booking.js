@@ -234,6 +234,17 @@
     }
   };
 
+  // Health check: the date step is open (it has "See more slots") but we found no chips.
+  const watched = new WeakSet();
+  const checkChips = () => {
+    const dlg = meetDialog();
+    if (!dlg || watched.has(dlg) || !/See more slots/.test(dlg.textContent)) return;
+    watched.add(dlg);
+    setTimeout(() => {
+      if (dlg.isConnected && !dlg.querySelector('.cc-book') && !chipButtons(dlg).length) CC.health.report(['Meet modal chips']);
+    }, 5000);
+  };
+
   CC.booking = { inject, panel, picker, theirSlots, clickTheirSlot };
-  CC.on('dom', inject);
+  CC.on('dom', () => { inject(); checkChips(); });
 })();

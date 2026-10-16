@@ -20,7 +20,7 @@ To update, unzip the new release over the folder and click ↻ on the extension.
 
 ## Feedback
 
-Click **Give feedback on this UI** (bottom right) to open a pre-filled GitHub issue, with an optional screenshot you can mark up and blur first. Pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). [PAIN-POINTS.md](PAIN-POINTS.md) lists the stock Swapcard frustrations this fixes.
+Click **Give feedback on this UI** (bottom right) to open a pre-filled GitHub issue (your comment, the page, the version, and any Swapcard hooks that found nothing), with an optional screenshot you can mark up and blur first. Pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). [PAIN-POINTS.md](PAIN-POINTS.md) lists the stock Swapcard frustrations this fixes.
 
 ## How it works
 

@@ -29,7 +29,7 @@
       let box = label;
       for (let i = 0; i < c.up && box.parentElement; i++) box = box.parentElement;
       // Never hide a main column by accident.
-      if (box.matches(`${sc('aside__Aside')}, ${sc('main__Main')}, main, #__next`)) continue;
+      if (box.matches(`[data-cc-col], ${sc('aside__Aside')}, ${sc('main__Main')}, main, #__next`)) continue;
       box.classList.add('cc-hidden-cruft');
       cruftDone.add(page + '|' + c.text);
     }
@@ -63,6 +63,36 @@
   pageClasses();
   CC.on('route', pageClasses);
 
+  // Health check: once a page has settled, which key hooks found nothing?
+  const LAYOUT_PAGES = ['people', 'exhibitors', 'products', 'person', 'messages', 'my-schedule'];
+  const HOOKS = [
+    // Narrow windows may collapse Swapcard's nav into a menu; don't call that a breakage.
+    { name: 'nav schedule link', on: (r) => !!r.slug && innerWidth >= 900, found: () => CC.nav && CC.nav.scheduleLink() },
+    { name: 'layout columns', on: (r) => LAYOUT_PAGES.includes(r.page), found: () => CC.layoutColumns().main },
+    // The calendar, not the List view or another My Schedule tab.
+    { name: 'calendar columns', on: (r) => r.page === 'my-schedule' && /^(schedule)?$/.test(new URLSearchParams(location.search).get('view') || ''),
+      found: () => CC.calendar && CC.calendar.columns().length },
+  ];
+  const checkHooks = async () => {
+    const at = location.pathname + location.search;
+    const r = CC.route();
+    const hooks = HOOKS.filter((k) => k.on(r));
+    const results = await Promise.all(hooks.map(async (k) =>
+      (await CC.waitFor(k.found, { timeout: 10000, every: 250 })) ? null : k.name));
+    if (location.pathname + location.search !== at) return; // moved on; the next check covers it
+    CC.health.resolve(hooks.map((k) => k.name).filter((n) => !results.includes(n)), r.page);
+    CC.health.report(results.filter(Boolean), r.page);
+    // A miss gets one more look later, in case the page was just slow.
+    if (results.some(Boolean)) setTimeout(() => {
+      if (location.pathname + location.search !== at) return;
+      CC.health.resolve(hooks.filter((k) => results.includes(k.name) && k.found()).map((k) => k.name), r.page);
+    }, 20000);
+  };
+  CC.on('ready', checkHooks);
+  CC.on('route', () => { if (CC.isReady) checkHooks(); });
+
+  // Mark Swapcard's layout right away, not only after the next DOM change.
+  CC.emit('tag');
   const start = async () => {
     const ok = await CC.waitFor(() => CC.clients().main && CC.theme(), { timeout: 30000, every: 200 });
     if (!ok) { CC.warn('Swapcard runtime not found; Calmer Card is idle on this page'); return; }

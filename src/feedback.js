@@ -142,6 +142,7 @@
           '',
           '---',
           `Page: \`${CC.route().page || 'unknown'}\` · Calmer Card ${CC.version}`,
+          ...(CC.health.missing().length ? [`Hooks missing: ${CC.health.missing().join('; ')}`] : []),
         ].filter((l, i, a) => l || a[i - 1]).join('\n');
         const u = new URL(REPO_URL + '/issues/new');
         u.searchParams.set('title', 'UI feedback: ' + firstLine);
@@ -163,7 +164,7 @@
           h('a', { href: REPO_URL, target: '_blank', rel: 'noopener noreferrer' }, 'Make a pull request ↗'),
           ' (the code is open source).'),
         text, shotArea,
-        h('div', { class: 'cc-fb-note cc-muted' }, 'Send opens a pre-filled GitHub issue (free account needed). Only what you type, the screenshot if you paste it, and the page name are shared.'),
+        h('div', { class: 'cc-fb-note cc-muted' }, 'Send opens a pre-filled GitHub issue (free account needed). Only what you type, the screenshot if you paste it, the page name and any Swapcard parts Calmer Card couldn’t find are shared.'),
         h('div', { class: 'cc-row cc-row-end' }, addShot, send)));
     modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });

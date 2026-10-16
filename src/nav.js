@@ -9,10 +9,18 @@
   // Swapcard's own "My Schedule" link, found by URL so renaming it doesn't lose it.
   // Looked up inside the top bar only (this runs on every DOM change). Swapcard's nav row has
   // no stable class name (it was submenu-wrapper__Container, now atomic classes), so the row is
-  // the top bar's child that holds the link; we tag it .cc-navbox for CSS.
+  // the top bar's child that holds the link; we mark it data-cc-navbox for CSS.
   const isSchedule = (a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && !a.classList.contains('cc-nav-inbox');
+  // The top bar, marked data-cc-topbar for CSS. By class name, or failing that the page header
+  // that holds the My Schedule link, in case top-bar__Wrapper goes the way of the nav row's class.
+  const topBar = () => {
+    const bar = document.querySelector(CC.sc('top-bar__Wrapper'))
+      || CC.$$('header, [role="banner"]').find((e) => CC.$$('a[href*="/my-schedule"]', e).some(isSchedule)) || null;
+    CC.tag('topbar', [bar && [bar, '']]);
+    return bar;
+  };
   const scheduleLink = () => {
-    const bar = document.querySelector(CC.sc('top-bar__Wrapper'));
+    const bar = topBar();
     if (!bar) return null;
     // Not the avatar menu's "My schedule" shortcut (still in the DOM, hidden with CSS).
     const ok = (a) => isSchedule(a) && !a.closest(`${CC.sc('top-bar__DropDownWrapper')}, [role="menu"], [hidden], .cc-hidden-cruft`);
@@ -20,15 +28,14 @@
     return links.find((a) => a.closest('ul, nav li')) || links[0] || null;
   };
   const navContainer = () => {
-    const tagged = document.querySelector('.cc-navbox');
-    if (tagged && tagged.isConnected && tagged.contains(scheduleLink())) return tagged;
     const sched = scheduleLink();
-    const bar = sched && sched.closest(CC.sc('top-bar__Wrapper'));
-    if (!bar) return null;
+    const tagged = document.querySelector('[data-cc-navbox]');
+    if (tagged && sched && tagged.contains(sched)) return tagged;
+    const bar = sched && sched.closest('[data-cc-topbar]');
+    if (!bar) { CC.tag('navbox', []); return null; }
     let box = sched;
     while (box.parentElement && box.parentElement !== bar) box = box.parentElement;
-    if (tagged) tagged.classList.remove('cc-navbox');
-    box.classList.add('cc-navbox');
+    CC.tag('navbox', [[box, '']]);
     return box;
   };
 
@@ -64,7 +71,7 @@
 
   // The top-right bell and chat icons.
   const hideIcons = () => {
-    const bar = document.querySelector(CC.sc('top-bar__Wrapper'));
+    const bar = topBar();
     if (!bar) return;
     for (const el of CC.$$('[aria-label="Notifications"], [aria-label="Messages"]', bar)) {
       if (el.classList.contains('cc-hidden-cruft') || el.closest('.cc-hidden-cruft')) continue;
@@ -88,7 +95,7 @@
   // Put the nav just after the event switcher in the top bar.
   let placeSig = '';
   const placeNav = (force) => {
-    const bar = document.querySelector('[class*="top-bar__Wrapper-sc-"]');
+    const bar = topBar();
     const navBox = navContainer();
     if (!bar) return;
     // Measuring is expensive; only redo it when the bar's width or text changed.
@@ -133,6 +140,7 @@
   };
 
   CC.nav = { scheduleLink, schedulePath };
+  CC.on('tag', topBar);
   CC.on('dom', () => { tidyNav(); hideIcons(); placeNav(); markActive(); });
   CC.on('route', () => { redirect(); placeNav(true); });
   CC.on('ready', redirect);

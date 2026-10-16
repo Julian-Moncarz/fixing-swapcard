@@ -34,11 +34,13 @@
   window.addEventListener('popstate', () => setTimeout(routeCheck, 0));
 
   // ---------- DOM change hook, throttled to one call per frame ----------
+  // 'tag' runs from the first frame (it only marks Swapcard's elements with our data-cc-*
+  // attributes, so CSS can target them before the rest is ready); 'dom' waits for boot.
   let domQueued = false;
   new MutationObserver(() => {
-    if (domQueued || !CC.isReady) return;
+    if (domQueued) return;
     domQueued = true;
-    requestAnimationFrame(() => { domQueued = false; CC.emit('dom'); });
+    requestAnimationFrame(() => { domQueued = false; CC.emit('tag'); if (CC.isReady) CC.emit('dom'); });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // The current time. A function so tests can simulate a moment during the event.
@@ -53,6 +55,28 @@
       if (Date.now() - t0 > timeout) return null;
       await CC.sleep(every);
     }
+  };
+
+  // ---------- hook health ----------
+  // Swapcard deploys can rename what we hook into; features then fall back to stock Swapcard
+  // without a sound. Hooks that found nothing are recorded here (warned once each, and listed
+  // in feedback reports) so a breakage shows up before many people hit it.
+  const missing = new Map(); // hook name -> Set of pages
+  CC.health = {
+    report: (names, page = CC.route().page || 'none') => {
+      const fresh = names.filter((n) => !(missing.get(n) || new Set()).has(page));
+      if (!fresh.length) return;
+      fresh.forEach((n) => missing.set(n, (missing.get(n) || new Set()).add(page)));
+      CC.warn(`hook missing: ${fresh.join(', ')} (page: ${page})`);
+    },
+    // A hook found later on the same page (slow wifi, late render) is no longer missing.
+    resolve: (names, page = CC.route().page || 'none') => {
+      for (const n of names) {
+        const pages = missing.get(n);
+        if (pages && pages.delete(page) && !pages.size) missing.delete(n);
+      }
+    },
+    missing: () => [...missing].map(([n, pages]) => `${n} (${[...pages].join(', ')})`),
   };
 
   // ---------- route parsing ----------
@@ -241,19 +265,39 @@
   CC.$$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   // Styled-components class prefix selector, e.g. sc('meeting-item__Container').
   CC.sc = (name) => `[class*="${name}-sc-"]`;
-  // The page's 3-column layout columns (left aside, main, right aside). Prefixes like
-  // "wrapper__Wrapper" are reused by unrelated components, so anchor on the page content.
-  CC.layoutColumns = () => {
-    // Swapcard sometimes wraps the grid in a <main> (since their October 2026 update).
-    const wrap = document.querySelector(`${CC.sc('content__Inner')} > ${CC.sc('wrapper__Wrapper')}, ${CC.sc('content__Inner')} > main > ${CC.sc('wrapper__Wrapper')}`);
-    if (!wrap) return { wrap: null, asides: [], main: null };
-    const kids = [...wrap.children];
-    return {
-      wrap,
-      asides: kids.filter((k) => k.matches(CC.sc('aside__Aside'))),
-      main: kids.find((k) => k.matches(CC.sc('main__Main'))) || null,
-    };
+  // Mark an element as one of ours to find again (data-cc-<key>="<value>"), and clear the mark
+  // from any element that no longer qualifies. A data attribute, not a class: React leaves
+  // attributes it doesn't own alone even when a styled-components class changes.
+  CC.tag = (key, els) => {
+    const attr = 'data-cc-' + key;
+    const keep = new Map(els.filter(Boolean).map(([el, v]) => [el, v]));
+    for (const el of document.querySelectorAll(`[${attr}]`)) if (!keep.has(el)) el.removeAttribute(attr);
+    for (const [el, v] of keep) if (el.getAttribute(attr) !== v) el.setAttribute(attr, v);
   };
+  // The page's 3-column layout columns (left aside, main, right aside). Prefixes like
+  // "wrapper__Wrapper" are reused by unrelated components, so anchor on the page content:
+  // the grid is a child or grandchild of content__Inner (Swapcard sometimes wraps it in a
+  // <main> since their October 2026 update). Found here only; everything else, CSS included,
+  // uses the data-cc-col marks: wrap, aside, main.
+  CC.layoutColumns = () => {
+    // Candidates: wrapper__Wrapper children/grandchildren of content__Inner. The prefix also
+    // matches tabs-wrapper__Wrapper and friends, so prefer the one that holds main__Main.
+    let wrap = null;
+    for (const inner of document.querySelectorAll(CC.sc('content__Inner'))) {
+      const kids = [...inner.children];
+      const cands = kids.filter((k) => k.tagName === 'MAIN').flatMap((k) => [...k.children])
+        .concat(kids, ...kids.map((k) => [...k.children]))
+        .filter((k) => k.matches(CC.sc('wrapper__Wrapper')));
+      wrap = cands.find((k) => [...k.children].some((c) => c.matches(CC.sc('main__Main')))) || cands[0] || null;
+      if (wrap) break;
+    }
+    const kids = wrap ? [...wrap.children] : [];
+    const asides = kids.filter((k) => k.matches(CC.sc('aside__Aside')));
+    const main = kids.find((k) => k.matches(CC.sc('main__Main'))) || null;
+    CC.tag('col', [wrap && [wrap, 'wrap'], ...asides.map((a) => [a, 'aside']), main && [main, 'main']]);
+    return { wrap, asides, main };
+  };
+  CC.on('tag', CC.layoutColumns);
 
   // Strip tags from Swapcard's HTML descriptions without executing anything.
   CC.textFromHtml = (html) => {
