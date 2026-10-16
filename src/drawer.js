@@ -165,6 +165,9 @@
         onClick: async () => { panelSlot.replaceChildren(CC.booking.panel(p, () => panelSlot.replaceChildren())); },
       }));
     }
+    if (!isSelf && connected) {
+      actions.append(ui.button('Message', { onClick: async () => message(p.id) }));
+    }
     if (!isSelf && !connected && !(p.userInfo && (p.userInfo.hasSentRequest || p.userInfo.hasReceivedRequest)) && p.userId) {
       const b = ui.button('Connect', { onClick: async () => { panelSlot.replaceChildren(connectBox(p, actions)); } });
       b.classList.add('cc-connect-btn');
@@ -411,7 +414,11 @@
       let path = target;
       try { path = new URL(target, location.href).pathname; } catch {}
       const view = viewFor(path);
-      if (view && !CC.allowNavigation && path.split('/')[2] === CC.route().slug) {
+      // Swapcard's "Message" button goes to the profile with ?openConnection=true to open a chat
+      // there; navigations that carry an intent like that are Swapcard's, so let them through.
+      let intent = false;
+      try { intent = new URL(target, location.href).searchParams.has('openConnection'); } catch {}
+      if (view && !intent && !CC.allowNavigation && path.split('/')[2] === CC.route().slug) {
         show(view);
         return Promise.resolve(true);
       }
@@ -437,5 +444,14 @@
     }
   };
 
-  CC.drawer = { open, openPerson: open, openSession, show, close, renderInto, isOpen: () => !!root && !root.hidden };
+  // Open Swapcard's own chat with a person (their profile page with ?openConnection=true, which
+  // is what Swapcard's Message button does). Works before any message exists.
+  const message = (personId) => {
+    close();
+    const url = `/event/${CC.route().slug}/person/${personId}?openConnection=true`;
+    const router = window.next && window.next.router;
+    router ? router.push(url) : location.assign(url);
+  };
+
+  CC.drawer = { open, openPerson: open, openSession, show, close, renderInto, message, isOpen: () => !!root && !root.hidden };
 })();

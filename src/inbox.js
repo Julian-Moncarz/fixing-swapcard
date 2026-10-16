@@ -66,8 +66,9 @@
 
 
   // ---------- the merged list ----------
-  // One entry per person: their chat (if any) plus their pending request (if any).
-  const buildEntries = (chats, reqs) => {
+  // One entry per person: their chat (if any) plus their pending request (if any). Contacts you
+  // haven't chatted with yet get an entry too, so you can always message them from here.
+  const buildEntries = (chats, reqs, contacts = []) => {
     const byPerson = new Map();
     const entries = [];
     for (const c of chats) {
@@ -83,11 +84,18 @@
       entries.push(e);
       if (r.personId) byPerson.set(r.personId, e);
     }
+    for (const c of contacts) {
+      if (!c.personId || byPerson.has(c.personId)) continue;
+      const e = { key: 'contact:' + c.personId, chat: null, request: null, contact: c, personId: c.personId, name: c.name, photoUrl: c.photoUrl, sub: c.sub };
+      entries.push(e);
+      byPerson.set(c.personId, e);
+    }
     for (const e of entries) {
       const r = e.request;
       e.needsYou = !!(r && r.incoming) || !!(e.chat && e.chat.unread > 0);
       e.waiting = !!(r && !r.incoming);
-      e.at = Math.max((e.chat && e.chat.last && +e.chat.last.at) || 0, (r && r.sentAt && +r.sentAt) || 0);
+      e.at = Math.max((e.chat && e.chat.last && +e.chat.last.at) || 0, (r && r.sentAt && +r.sentAt) || 0,
+        (e.contact && e.contact.connectedAt && +e.contact.connectedAt) || 0);
     }
     const group = (e) => (e.needsYou ? 0 : e.waiting ? 1 : 2);
     return entries.sort((a, b) => group(a) - group(b) || b.at - a.at);
@@ -113,6 +121,7 @@
     if (r && r.incoming) return h('span', { class: 'cc-ib-what cc-ib-connect' }, 'Wants to connect');
     if (e.chat && e.chat.last) return h('span', { class: 'cc-ib-what' }, (e.chat.last.fromMe ? 'You: ' : '') + e.chat.last.text.replace(/\s+/g, ' ').trim());
     if (r && !r.incoming) return h('span', { class: 'cc-ib-what' }, r.isMeeting ? 'You requested a meeting · waiting' : 'You asked to connect · waiting');
+    if (e.contact) return h('span', { class: 'cc-ib-what' }, 'Connected · no messages yet');
     return h('span', { class: 'cc-ib-what' }, '');
   };
 
@@ -250,6 +259,16 @@
     main.querySelector(':scope > .cc-ib-pin')?.remove();
     main.querySelector(':scope > .cc-ib-solo')?.remove();
     main.classList.toggle('cc-ib-solo-on', !!requestOnly);
+    if (requestOnly && !requestOnly.request) {
+      // A contact with no conversation yet.
+      const first = requestOnly.name.split(' ')[0];
+      main.prepend(h('div', { class: 'cc-ib-solo' },
+        h('div', { class: 'cc-ib-card' },
+          h('div', { class: 'cc-ib-card-title' }, `You’re connected with ${first}`),
+          h('div', { class: 'cc-muted cc-small' }, 'No messages yet.'),
+          h('div', { class: 'cc-row' }, ui.button(`Message ${first}`, { variant: 'primary', onClick: async () => CC.drawer.message(requestOnly.personId) })))));
+      return;
+    }
     if (requestOnly) {
       main.prepend(h('div', { class: 'cc-ib-solo' },
         requestCard(requestOnly),
@@ -297,12 +316,13 @@
     if (loading) { again = again || force; return; } // queue it; don't drop it
     loading = true;
     try {
-      if (force) { CC.data.invalidate('chats'); CC.data.invalidate('requests'); CC.data.invalidate('agenda:'); }
+      if (force) { CC.data.invalidate('chats'); CC.data.invalidate('requests'); CC.data.invalidate('agenda:'); CC.data.invalidate('contacts:'); }
       const ev = await CC.data.event();
       if (!ev || !ev.me) return; // not registered for this event: leave Swapcard's list alone
       CC._meUserId = ev.me.userId;
-      const [chats, reqs, agenda] = await Promise.all([CC.data.chats(), CC.data.requests(), CC.data.agenda().catch(() => [])]);
-      const entries = buildEntries(chats, reqs);
+      const [chats, reqs, agenda, contacts] = await Promise.all([CC.data.chats(), CC.data.requests(), CC.data.agenda().catch(() => []),
+        CC.data.contacts().catch((e) => { CC.warn('contacts', e); return []; })]);
+      const entries = buildEntries(chats, reqs, contacts);
       const sig = sigOf(entries);
       state.entries = entries;
       state.agenda = agenda;

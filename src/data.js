@@ -140,6 +140,20 @@
       }
     }`,
 
+    // Everyone you're connected to at this event (Swapcard's My contacts), newest first.
+    contacts: `query CalmerCardContacts($filter: Core_ListConnectionsFilterInput!, $after: String) {
+      contacts: Core_listConnections(filter: $filter, cursor: { first: 100, after: $after }) {
+        totalCount
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          ... on Core_EventPerson {
+            id firstName lastName photoUrl jobTitle organization
+            connectionInfo { connectedAt }
+          }
+        }
+      }
+    }`,
+
     // Your 25-minute 1:1 slots per day: AVAILABLE, DISABLED (you marked it unavailable) or
     // BLOCKED_BY_MEETING. Same fields as Swapcard's Manage availability modal.
     availability: `query CalmerCardAvailability($eventId: ID!, $dateRange: Core_DateRangeInput!, $timezone: String) {
@@ -425,6 +439,34 @@
         dateRange: { start: start.toISOString(), end: end.toISOString() },
       });
       return r.event.availableMeetingSlots.nodes.map((s) => ({ id: s.id, start: new Date(s.starts), end: new Date(s.ends) }));
+    },
+
+    // Your contacts at this event: [{ personId, name, firstName, photoUrl, sub, connectedAt }].
+    async contacts() {
+      const ev = await data.event();
+      if (!ev) return [];
+      return cached('contacts:' + ev.id, 60e3, async () => {
+        const out = [];
+        let after = null;
+        for (let page = 0; page < 5; page++) { // up to 500; plenty for one event
+          const r = await CC.query(Q.contacts, { filter: { eventId: ev.id }, after });
+          const c = r.contacts;
+          for (const n of c.nodes) {
+            if (!n || !n.id) continue;
+            out.push({
+              personId: n.id,
+              name: [n.firstName, n.lastName].filter(Boolean).join(' ') || 'Someone',
+              firstName: n.firstName || '',
+              photoUrl: n.photoUrl,
+              sub: [n.jobTitle, n.organization].filter(Boolean).join(' · '),
+              connectedAt: n.connectionInfo && n.connectionInfo.connectedAt ? new Date(n.connectionInfo.connectedAt) : null,
+            });
+          }
+          if (!c.pageInfo || !c.pageInfo.hasNextPage) break;
+          after = c.pageInfo.endCursor;
+        }
+        return out;
+      });
     },
 
     // Your own 1:1 slots across the event, flattened: [{ id, start, end, state }].
