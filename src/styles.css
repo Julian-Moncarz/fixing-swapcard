@@ -232,7 +232,7 @@ html.cc-nav-inline .cc-navbox {
 }
 html.cc-nav-inline [class*="content__Container-sc-"] { top: 80px !important; }
 /* Swapcard's "See less" toggle under the nav row means nothing once the nav is in the top bar. */
-html.cc-nav-inline .cc-navbox button[aria-label="See less"], html.cc-nav-inline .cc-navbox button[aria-label="See more"] { display: none !important; }
+html.cc-nav-inline .cc-navbox button[aria-label="See less"] { display: none !important; }
 /* The calendar's height was sized for the old two-row header; give it the freed space. */
 html.cc-nav-inline.cc-page-my-schedule [class*="desktop__Container-sc-"] { height: calc(100vh - 180px) !important; }
 .cc-nav-first { order: -1; }
@@ -481,3 +481,35 @@ html.cc-drawer-open .cc-fb-button { display: none; }
 .cc-fb-editor { display: flex; flex-direction: column; gap: 8px; }
 .cc-fb-canvas { width: 100%; height: auto; border: 1px solid var(--cc-outline); border-radius: var(--cc-radius-md); cursor: crosshair; touch-action: none; }
 .cc-fb-tools .cc-btn { padding: 6px 10px; }
+
+/* ---------- 1:1 availability on the calendar ---------- */
+.cc-avail-col { cursor: crosshair; }
+.cc-avail-col [class*="timeline-block__BlockWrapper-sc-"], .cc-avail-col .cc-ghost, .cc-avail-col .cc-ghost-chip { cursor: pointer; }
+.cc-avail-layer { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.cc-avail-off {
+  position: absolute; left: 0; right: 0; box-sizing: border-box;
+  background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .16) 0 5px, rgba(100, 116, 139, .05) 5px 11px);
+  border-top: 1px dashed rgba(100, 116, 139, .45); border-bottom: 1px dashed rgba(100, 116, 139, .45);
+}
+.cc-avail-off-label {
+  position: absolute; right: 6px; top: 3px; font: 500 11px var(--cc-font); color: var(--cc-text-muted);
+  background: rgba(255, 255, 255, .85); padding: 0 5px; border-radius: 4px;
+}
+.cc-avail-sel {
+  position: absolute; left: 2px; right: 2px; z-index: 6; pointer-events: none; box-sizing: border-box;
+  border: 2px solid var(--cc-text-muted); border-radius: 6px;
+  background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .28) 0 5px, rgba(100, 116, 139, .12) 5px 11px);
+}
+.cc-avail-sel.cc-avail-sel-open { border-color: var(--cc-success); background: rgba(16, 185, 129, .14); }
+.cc-avail-sel-label {
+  position: absolute; left: 6px; top: 4px; font: 600 12px var(--cc-font); color: #fff;
+  background: var(--cc-text); padding: 2px 7px; border-radius: 6px; white-space: nowrap;
+}
+.cc-avail-hint {
+  position: absolute; left: 4px; top: 44px; z-index: 4; display: flex; align-items: center; gap: 6px;
+  font: 400 12px var(--cc-font); color: var(--cc-text-muted); max-width: 150px; line-height: 1.3;
+}
+.cc-avail-swatch {
+  flex: none; width: 14px; height: 14px; border-radius: 3px; border: 1px dashed rgba(100, 116, 139, .6);
+  background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .3) 0 3px, rgba(100, 116, 139, .08) 3px 6px);
+}

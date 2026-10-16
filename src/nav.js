@@ -13,7 +13,11 @@
   const isSchedule = (a) => /\/my-schedule(\?|$)/.test(a.getAttribute('href')) && !a.classList.contains('cc-nav-inbox');
   const scheduleLink = () => {
     const bar = document.querySelector(CC.sc('top-bar__Wrapper'));
-    return bar ? CC.$$('a[href*="/my-schedule"]', bar).find(isSchedule) || null : null;
+    if (!bar) return null;
+    // Not the avatar menu's "My schedule" shortcut (still in the DOM, hidden with CSS).
+    const ok = (a) => isSchedule(a) && !a.closest(`${CC.sc('top-bar__DropDownWrapper')}, [role="menu"], [hidden], .cc-hidden-cruft`);
+    const links = CC.$$('a[href*="/my-schedule"]', bar).filter(ok);
+    return links.find((a) => a.closest('ul, nav li')) || links[0] || null;
   };
   const navContainer = () => {
     const tagged = document.querySelector('.cc-navbox');
@@ -104,7 +108,8 @@
     const left = Math.round(right + 32);
     document.documentElement.style.setProperty('--cc-nav-left', left + 'px');
     // Does the nav fit between the event name and the avatar? Its width is the span of its items.
-    const list = navBox && navBox.querySelector('ul');
+    const sched = scheduleLink();
+    const list = navBox && sched ? (sched.closest('li') || sched).parentElement : null;
     const rects = list ? CC.$$('a[href], button', list).filter((a) => a.offsetParent !== null).map((a) => a.getBoundingClientRect()) : [];
     const navWidth = rects.length ? Math.max(...rects.map((r) => r.right)) - Math.min(...rects.map((r) => r.left)) + 24 : Infinity;
     const avatar = bar.querySelector(CC.sc('top-bar__DropDownWrapper'));

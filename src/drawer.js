@@ -109,7 +109,8 @@
       : 'Wants to connect';
     const bar = h('div', { class: 'cc-drawer-request' },
       h('div', { class: 'cc-request-kind' }, req.incoming ? what : what + ' (you sent this, waiting)'),
-      req.message && h('div', { class: 'cc-request-msg' }, '“' + req.message + '”'));
+      req.meeting && req.meeting.description && h('div', { class: 'cc-request-msg' }, req.meeting.description),
+      req.message && req.message.trim() !== (req.meeting && req.meeting.description) && h('div', { class: 'cc-request-msg' }, '“' + req.message + '”'));
     if (req.incoming) {
       const done = (msg) => { bar.replaceChildren(h('div', { class: 'cc-request-done' }, msg)); onDone && onDone(); };
       bar.append(h('div', { class: 'cc-row' },

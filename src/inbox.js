@@ -193,7 +193,21 @@
     return draw;
   };
 
-  // inChat: the conversation is shown underneath, so skip the message (it's in the chat already).
+  // What they wrote: the meeting's description (its agenda) and the note sent with the request.
+  // They're separate fields and often only one is filled. inChat: the conversation is shown
+  // underneath, so skip the note only when it is literally the latest chat message.
+  const requestTexts = (e, inChat) => {
+    const r = e.request;
+    const norm = (x) => (x || '').replace(/\s+/g, ' ').trim();
+    const desc = r.meeting && r.meeting.description;
+    const last = inChat && e.chat && e.chat.last && e.chat.last.text;
+    const note = r.message && norm(r.message) !== norm(desc) && norm(r.message) !== norm(last) ? r.message : null;
+    return [
+      desc && h('div', { class: 'cc-request-msg' }, h('div', { class: 'cc-p-label' }, 'About the meeting'), desc),
+      note && h('div', { class: 'cc-request-msg' }, desc ? h('div', { class: 'cc-p-label' }, 'Note') : null, note),
+    ];
+  };
+
   const requestCard = (e, { inChat = false } = {}) => {
     const r = e.request;
     const f = freeness(r, state.agenda);
@@ -207,7 +221,7 @@
       r.meeting && h('div', { class: 'cc-ib-card-when' },
         `${ui.day(r.meeting.start)} · ${ui.range(r.meeting.start, r.meeting.end)}${r.meeting.place ? ' · ' + r.meeting.place : ''}`),
       f && h('div', { class: 'cc-ib-card-free ' + (f.free ? 'cc-ib-free' : 'cc-ib-clash') }, f.text),
-      r.message && !inChat && h('div', { class: 'cc-request-msg' }, r.message));
+      requestTexts(e, inChat));
     // The day window (meeting requests you received).
     const daySlot = h('div', { class: 'cc-ib-dayslot' });
     let redrawDay = null;

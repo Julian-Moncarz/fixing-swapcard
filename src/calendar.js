@@ -227,13 +227,15 @@
     if (!W) return;
     for (const b of col.querySelectorAll(`:scope > ${sc('timeline-block__BlockWrapper')}`)) {
       const st = b.style;
-      // React wrote new values if they differ from what we last set.
-      if (st.left !== b.dataset.ccLeft || st.getPropertyValue('inset-inline-start')) {
-        b.dataset.ccOrigInset = st.getPropertyValue('inset-inline-start');
-        b.dataset.ccOrigLeft = st.left;
-        b.dataset.ccOrigPos = posOf(st) || '0px';
+      // React wrote new values if they differ from what we last set. A left that is still ours
+      // (React only rewrote inset-inline-start) is not Swapcard's, so don't record it.
+      const insetNow = st.getPropertyValue('inset-inline-start');
+      if (insetNow || st.left !== b.dataset.ccLeft) {
+        b.dataset.ccOrigInset = insetNow;
+        b.dataset.ccOrigLeft = st.left === b.dataset.ccLeft ? '' : st.left;
+        b.dataset.ccOrigPos = insetNow || b.dataset.ccOrigLeft || '0px';
       }
-      if (st.width !== b.dataset.ccWidth) b.dataset.ccOrigWidth = st.width || W + 'px';
+      if (st.width !== b.dataset.ccWidth) b.dataset.ccOrigWidth = st.width; // '' = no inline width
       const l = fracOf(b.dataset.ccOrigPos, W) || 0;
       const w = fracOf(b.dataset.ccOrigWidth, W) || 1;
       // Full width unless a grey session or chip sits beside it.
@@ -249,7 +251,8 @@
       const nl = (l * share * 100).toFixed(2) + '%';
       const nw = `calc(${(w * share * 100).toFixed(2)}% - 6px)`;
       // Only write when something changed, or our own writes would re-trigger the observer forever.
-      if (b.dataset.ccTarget === nl + '|' + nw && st.left === b.dataset.ccLeft && st.width === b.dataset.ccWidth) continue;
+      if (b.dataset.ccTarget === nl + '|' + nw && st.left === b.dataset.ccLeft && st.width === b.dataset.ccWidth
+        && !st.getPropertyValue('inset-inline-start')) continue;
       st.removeProperty('inset-inline-start');
       st.setProperty('left', nl);
       st.setProperty('width', nw);
@@ -263,8 +266,9 @@
     if (!('ccTarget' in b.dataset)) return;
     const st = b.style;
     if (b.dataset.ccOrigInset) st.setProperty('inset-inline-start', b.dataset.ccOrigInset);
-    if (b.dataset.ccOrigLeft) st.setProperty('left', b.dataset.ccOrigLeft); else st.removeProperty('left');
-    if (b.dataset.ccOrigWidth) st.setProperty('width', b.dataset.ccOrigWidth);
+    // With inset-inline-start, Swapcard sets no left; ours must go or it would win.
+    if (b.dataset.ccOrigLeft && !b.dataset.ccOrigInset) st.setProperty('left', b.dataset.ccOrigLeft); else st.removeProperty('left');
+    if (b.dataset.ccOrigWidth) st.setProperty('width', b.dataset.ccOrigWidth); else st.removeProperty('width');
     for (const k of ['ccOrigInset', 'ccOrigLeft', 'ccOrigPos', 'ccOrigWidth', 'ccLeft', 'ccWidth', 'ccTarget']) delete b.dataset[k];
   };
   // Swapcard's blocks have a fixed height, so text that wraps gets cut mid-line. Drop the least
@@ -338,9 +342,11 @@
     ui.hideHoverCard();
     render(true);
   };
+  let appliedFocus = null; // the day view state last drawn (so render knows when it changed)
   const applyDayFocus = (cols, days) => {
     const cells = CC.$$(sc('desktop-date-header__DayCell'));
     if (dayFocus && !days.includes(dayFocus)) dayFocus = null;
+    appliedFocus = dayFocus;
     document.documentElement.classList.toggle('cc-dayview', !!dayFocus);
     document.documentElement.style.setProperty('--cc-own-share', String(ownShare()));
     cols.forEach((c, i) => c.classList.toggle('cc-day-off', !!dayFocus && days[i] !== dayFocus));
@@ -375,8 +381,7 @@
     if (show) cols.forEach(scaleBlocks); else unscaleBlocks();
     cols.forEach(fitBlocks);
     cols.forEach(decorateOwnBlocks);
-    const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer'))
-      && (!dayFocus || !!document.querySelector(`${sc('desktop-date-header__DayCell')}.cc-day-off`));
+    const intact = cols.every((c) => c.querySelector(':scope > .cc-ghost-layer')) && appliedFocus === dayFocus;
     // Include the dates on screen, so paging to other days redraws even if React reuses columns.
     const sig = CC.$$(sc('desktop-date-header__DayCell')).map((c) => c.textContent.trim().slice(0, 12)).join(',') + ':' + show;
     if (!force && intact && sig === lastSig) return;
@@ -399,7 +404,8 @@
       const ppm = pxPerMin(wrapper);
       cols.forEach((col, i) => {
         const key = days[i];
-        if (!key) return;
+        // A column with no date still gets an (empty) layer, so the next DOM change sees it as done.
+        if (!key) { col.prepend(h('div', { class: 'cc-ghost-layer' })); return; }
         const layer = h('div', { class: 'cc-ghost-layer', 'aria-label': 'Sessions you are not attending' });
         // Not attending, not over yet, and not hidden (unless you're looking at hidden ones).
         const todays = sessions.filter((s) => !s.attending && ui.dayKey(s.start) === key && s.end > now && (showHidden || !isHidden(s, hid)));

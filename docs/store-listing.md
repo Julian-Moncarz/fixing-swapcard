@@ -25,6 +25,7 @@ What it changes:
 - **Day view.** Click a day or a busy time slot to see just that day, full width, with every session as a readable block.
 - **An email-style Inbox.** Meeting requests, connection requests and chats are merged into one list, one row per person, with the ones that need you first. A pending request is pinned above the conversation, showing whether you are free at the proposed time. Keyboard shortcuts let you move through the list and accept or decline quickly.
 - **Side panel.** Clicking a person, a session or a meeting opens it in a side panel instead of navigating away, so you never lose your place.
+- **Set your 1:1 availability on the calendar.** Drag across empty time to block it for meetings, or drag over a blocked stretch to open it up again.
 - **Book 1:1s on mutual free time.** When you ask someone to meet, you see your own day (meetings and sessions) with the times you are both free highlighted, then pick one.
 - **Feedback button.** Tell us how the interface should change, with an optional screenshot you can mark up and blur before sharing.
 

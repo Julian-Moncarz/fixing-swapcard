@@ -21,6 +21,7 @@
         "src/ui.js",
         "src/nav.js",
         "src/calendar.js",
+        "src/availability.js",
         "src/drawer.js",
         "src/inbox.js",
         "src/booking.js",

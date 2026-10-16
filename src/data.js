@@ -122,10 +122,10 @@
             user { firstName lastName jobTitle organization photoUrl }
           }
           ... on Core_MeetingRequestReceived {
-            meeting { id beginsAt(format: ISO8601) endsAt(format: ISO8601) place { id name } }
+            meeting { id description beginsAt(format: ISO8601) endsAt(format: ISO8601) place { id name } }
           }
           ... on Core_MeetingRequestSent {
-            meeting { id beginsAt(format: ISO8601) endsAt(format: ISO8601) place { id name } }
+            meeting { id description beginsAt(format: ISO8601) endsAt(format: ISO8601) place { id name } }
           }
         }
       }
@@ -136,6 +136,23 @@
         _id
         availableMeetingSlots(peopleIds: $peopleIds, cursor: { first: 1000 }, dateRange: $dateRange) {
           nodes { id starts ends }
+        }
+      }
+    }`,
+
+    // Your 25-minute 1:1 slots per day: AVAILABLE, DISABLED (you marked it unavailable) or
+    // BLOCKED_BY_MEETING. Same fields as Swapcard's Manage availability modal.
+    availability: `query CalmerCardAvailability($eventId: ID!, $dateRange: Core_DateRangeInput!, $timezone: String) {
+      event: Core_event(_id: $eventId) {
+        id: _id
+        eventPerson {
+          id
+          withEvent(eventId: $eventId) {
+            id
+            meetingSlotsByDayWithState(dateRange: $dateRange, timezone: $timezone) {
+              slotsByDay { day slots { id starts(format: ISO8601) ends(format: ISO8601) state } }
+            }
+          }
         }
       }
     }`,
@@ -175,6 +192,9 @@
     }`,
     participation: `mutation CalmerCardParticipation($input: Core_UpdateMeetingParticipationInput!) {
       u: Core_updateMeetingParticipation(input: $input) { errors { message } meeting { id status } }
+    }`,
+    setSlotsDisabled: `mutation CalmerCardSetSlotsDisabled($input: Core_UpdatePersonMeetingSlotsDisabledInput!) {
+      u: Core_updatePersonMeetingSlotsDisabled(input: $input) { person { id } }
     }`,
     createMeeting: `mutation CalmerCardCreateMeeting($input: Core_CreateMeetingInput!) {
       Core_createMeeting(input: $input) { errors { message } meeting { id } }
@@ -387,6 +407,7 @@
               start: new Date(n.meeting.beginsAt),
               end: new Date(n.meeting.endsAt),
               place: n.meeting.place && n.meeting.place.name,
+              description: (n.meeting.description || '').trim(),
             } : null,
           }))
           .sort((a, b) => (b.sentAt || 0) - (a.sentAt || 0));
@@ -404,6 +425,33 @@
         dateRange: { start: start.toISOString(), end: end.toISOString() },
       });
       return r.event.availableMeetingSlots.nodes.map((s) => ({ id: s.id, start: new Date(s.starts), end: new Date(s.ends) }));
+    },
+
+    // Your own 1:1 slots across the event, flattened: [{ id, start, end, state }].
+    async availability() {
+      const ev = await data.event();
+      if (!ev || !ev.me) return [];
+      return cached('avail:' + ev.id, 60e3, async () => {
+        const start = new Date(new Date(ev.beginsAt).getTime() - 36e5 * 24);
+        const end = new Date(new Date(ev.endsAt).getTime() + 36e5 * 24);
+        const r = await CC.query(Q.availability, {
+          eventId: ev.id, dateRange: { start: start.toISOString(), end: end.toISOString() }, timezone: ev.timezone,
+        });
+        const days = (r.event && r.event.eventPerson && r.event.eventPerson.withEvent
+          && r.event.eventPerson.withEvent.meetingSlotsByDayWithState.slotsByDay) || [];
+        return days.flatMap((d) => d.slots.map((x) => ({ id: x.id, start: new Date(x.starts), end: new Date(x.ends), state: x.state })));
+      });
+    },
+
+    // Mark 1:1 slots unavailable (disabled = true) or available again. Slots taken by a meeting
+    // can't be changed and should not be passed.
+    async setSlotsDisabled(slotIds, disabled) {
+      const ev = await data.event();
+      if (!slotIds.length) return;
+      await CC.mutate(M.setSlotsDisabled, { input: { eventId: ev.id, personId: ev.me.id, isDisabled: !!disabled, meetingSlotIds: slotIds } });
+      invalidate('avail:');
+      invalidate('slots:');
+      CC.emit('availability-changed');
     },
 
     async places(slotId, personIds) {

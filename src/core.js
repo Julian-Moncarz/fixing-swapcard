@@ -2,6 +2,9 @@
 // Runs in the page's MAIN world so it can reach React fibers and webpack modules.
 (() => {
   if (window.CalmerCard) return;
+  // Off switch for comparing with stock Swapcard (demo recordings, bug reports):
+  // localStorage.setItem('cc:off', '1') and reload. Every module checks for CC, so nothing runs.
+  try { if (localStorage.getItem('cc:off') === '1') return; } catch {}
   const CC = (window.CalmerCard = { version: '0.1.1' });
 
   CC.debug = (() => { try { return localStorage.getItem('cc:debug') === '1'; } catch { return false; } })();
